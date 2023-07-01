@@ -16,3 +16,4 @@
 """All registered datasets."""
 
 from data import coco  # pylint: disable=unused-import
+from data import recognition  # pylint: disable=unused-import

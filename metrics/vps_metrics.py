@@ -133,40 +133,26 @@ def _semantic_instance_maps_from_rgb(filename, rgb_instance_label_divisor=256):
     with tf.io.gfile.GFile(filename, "rb") as f:
         panoptic_map = np.array(PIL.Image.open(f)).astype(np.int32)
     semantic_map = panoptic_map[:, :, 0]
-    instance_map = (
-        panoptic_map[:, :, 1] * rgb_instance_label_divisor + panoptic_map[:, :, 2]
-    )
+    instance_map = panoptic_map[:, :, 1] * rgb_instance_label_divisor + panoptic_map[:, :, 2]
     return semantic_map, instance_map
 
 
-def _panoptic_map_from_semantic_instance_maps(
-    semantic_map, instance_map, panoptic_label_divisor
-):
+def _panoptic_map_from_semantic_instance_maps(semantic_map, instance_map, panoptic_label_divisor):
     return semantic_map * panoptic_label_divisor + instance_map
 
 
-def _panoptic_map_from_rgb(
-    filename, panoptic_label_divisor, rgb_instance_label_divisor=256
-):
+def _panoptic_map_from_rgb(filename, panoptic_label_divisor, rgb_instance_label_divisor=256):
     """Loads a rgb format panoptic map from file and encode to single channel."""
-    semantic_map, instance_map = _semantic_instance_maps_from_rgb(
-        filename, rgb_instance_label_divisor
-    )
-    panoptic_map = _panoptic_map_from_semantic_instance_maps(
-        semantic_map, instance_map, panoptic_label_divisor
-    )
+    semantic_map, instance_map = _semantic_instance_maps_from_rgb(filename, rgb_instance_label_divisor)
+    panoptic_map = _panoptic_map_from_semantic_instance_maps(semantic_map, instance_map, panoptic_label_divisor)
     return panoptic_map
 
 
-def _panoptic_map_to_rgb(
-    semantic_map, instance_map, filename, rgb_instance_label_divisor=256
-):
+def _panoptic_map_to_rgb(semantic_map, instance_map, filename, rgb_instance_label_divisor=256):
     """Converts a panoptic map to rgb format and write to file."""
     instance_map_1 = instance_map // rgb_instance_label_divisor
     instance_map_2 = instance_map % rgb_instance_label_divisor
-    panoptic_map = np.stack([semantic_map, instance_map_1, instance_map_2], -1).astype(
-        np.uint8
-    )
+    panoptic_map = np.stack([semantic_map, instance_map_1, instance_map_2], -1).astype(np.uint8)
     panoptic_map = PIL.Image.fromarray(panoptic_map)
     _write_to_png_file(panoptic_map, filename)
 
@@ -245,9 +231,7 @@ class STQEvaluation(object):
                 # to a new id. Therefore we need to keep a running list of ids that
                 # appear in the conditional frames.
                 used_ids = [0]
-                recent_ids = collections.deque(
-                    [[0]] * self.num_cond_frames, self.num_cond_frames
-                )
+                recent_ids = collections.deque([[0]] * self.num_cond_frames, self.num_cond_frames)
 
             for img in tf.io.gfile.listdir(os.path.join(result_dir, video_name)):
                 pred_file = os.path.join(result_dir, video_name, img)
@@ -283,9 +267,7 @@ class STQEvaluation(object):
                         semantic_map, instance_map, self.panoptic_label_divisor
                     )
                 else:
-                    pred = _panoptic_map_from_rgb(
-                        pred_file, self.panoptic_label_divisor
-                    )
+                    pred = _panoptic_map_from_rgb(pred_file, self.panoptic_label_divisor)
                 self.stq.update_state(gt, pred, video_id)
 
         return self.stq.result()
@@ -331,9 +313,7 @@ class STQMetric(object):
     def _write_predictions(self, frame_id, semantic_map, instance_map, outdir):
         # When saving output for evaluation, change semantic ids back to the
         # original class ids, and 0 back to 255 which is to be ignored.
-        semantic_map = np.where(
-            semantic_map == 0, self.config.dataset.ignore_label, semantic_map - 1
-        )
+        semantic_map = np.where(semantic_map == 0, self.config.dataset.ignore_label, semantic_map - 1)
         output_file = os.path.join(outdir, f"{frame_id:06}.png")
         _panoptic_map_to_rgb(semantic_map, instance_map, output_file)
 
@@ -365,9 +345,7 @@ class STQMetric(object):
         pred_dir = os.path.join(self._local_pred_dir_obj.name, str(step), video_name)
         if not tf.io.gfile.exists(pred_dir):
             tf.io.gfile.makedirs(pred_dir)
-        vis_dir = os.path.join(
-            self._panoptic_local_vis_dir_obj.name, str(step), video_name
-        )
+        vis_dir = os.path.join(self._panoptic_local_vis_dir_obj.name, str(step), video_name)
         if not tf.io.gfile.exists(vis_dir):
             tf.io.gfile.makedirs(vis_dir)
 
@@ -411,9 +389,7 @@ class STQMetric(object):
             # Write metrics to result_dir.
             result_dir = os.path.join(self.results_dir, str(step))
             csv_name_global_path = os.path.join(result_dir, "global_results.csv")
-            csv_name_per_sequence_path = os.path.join(
-                result_dir, "per_sequence_results.csv"
-            )
+            csv_name_per_sequence_path = os.path.join(result_dir, "per_sequence_results.csv")
 
             # Global results.
             g_res = np.asarray([stq_metric[n] for n in self.metric_names])
@@ -425,9 +401,7 @@ class STQMetric(object):
 
             # Per sequence results.
             table_seq = pd.DataFrame(
-                data=list(
-                    zip(*[list(stq_metric[n]) for n in self.per_sequence_metric_names])
-                ),
+                data=list(zip(*[list(stq_metric[n]) for n in self.per_sequence_metric_names])),
                 columns=self.per_sequence_metric_names,
             )
             with tf.io.gfile.GFile(csv_name_per_sequence_path, "w") as f:

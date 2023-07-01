@@ -53,9 +53,7 @@ class SPTokenizer(Tokenizer):
         self.model_path = model_path
         with tf.io.gfile.GFile(model_path, "rb") as f:
             model = f.read()
-            self.tokenizer = tf_text.SentencepieceTokenizer(
-                model, out_type=tf.string, add_bos=add_bos, add_eos=add_eos
-            )
+            self.tokenizer = tf_text.SentencepieceTokenizer(model, out_type=tf.string, add_bos=add_bos, add_eos=add_eos)
 
     @property
     def vocab_size(self):

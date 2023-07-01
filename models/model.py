@@ -48,9 +48,7 @@ class Trainer(abc.ABC):
         batch_size = config.train.batch_size
         tail_steps = c_opt.get("tail_steps", 0)
         end_lr_factor = c_opt.get("end_lr_factor", 0.0)
-        warmup_steps = c_opt.warmup_steps or int(
-            round(c_opt.warmup_epochs * num_train_examples // batch_size)
-        )
+        warmup_steps = c_opt.warmup_steps or int(round(c_opt.warmup_epochs * num_train_examples // batch_size))
         self._learning_rate = learning_rate = model_utils.WarmUpAndDecay(
             c_opt.learning_rate,
             c_opt.learning_rate_scaling,
@@ -61,9 +59,7 @@ class Trainer(abc.ABC):
             tail_steps=tail_steps,
             end_lr_factor=end_lr_factor,
         )
-        self._optimizer = optimizer = model_utils.build_optimizer(
-            config.optimization, learning_rate
-        )
+        self._optimizer = optimizer = model_utils.build_optimizer(config.optimization, learning_rate)
 
         # Setup model and checkpoints.
         self._model = model = ModelRegistry.lookup(config.model.name)(config)
@@ -81,9 +77,7 @@ class Trainer(abc.ABC):
                 _, _, self._verify_restored_p = utils.restore_from_checkpoint(
                     config.model.pretrained_ckpt, True, model=model
                 )
-        self._checkpoint_manager = tf.train.CheckpointManager(
-            ckpt, model_dir, config.train.keep_checkpoint_max
-        )
+        self._checkpoint_manager = tf.train.CheckpointManager(ckpt, model_dir, config.train.keep_checkpoint_max)
 
         # Setup metrics.
         self._metrics = {
@@ -92,12 +86,7 @@ class Trainer(abc.ABC):
             "weight_linf_norm": tf.keras.metrics.Mean("weight_linf_norm"),
             "loss": tf.keras.metrics.Mean("loss"),
         }
-        self._metrics.update(
-            {
-                f"loss_{t.name}": tf.keras.metrics.Mean(f"loss_{t.name}")
-                for t in config.tasks
-            }
-        )
+        self._metrics.update({f"loss_{t.name}": tf.keras.metrics.Mean(f"loss_{t.name}") for t in config.tasks})
         self._print_params = True
 
     def train_step(self, examples, tasks, strategy):
@@ -111,9 +100,7 @@ class Trainer(abc.ABC):
           strategy: tensorflow strategy such as `TPUStrategy` or `MirroredStrategy`.
         """
         logging.info("train_step begins...")
-        preprocessed_outputs = [
-            t.preprocess_batched(e, training=True) for e, t in zip(examples, tasks)
-        ]
+        preprocessed_outputs = [t.preprocess_batched(e, training=True) for e, t in zip(examples, tasks)]
 
         task_loss_metrics = {}
         loss = 0
@@ -139,13 +126,9 @@ class Trainer(abc.ABC):
         self._metrics["weight_linf_norm"].update_state(tf.reduce_max(wmx))
         multiplier = strategy.num_replicas_in_sync
         self._metrics["grad_global_norm"].update_state(
-            tf.linalg.global_norm(
-                [tf.math.scalar_mul(multiplier, g) for g in grads if g is not None]
-            )
+            tf.linalg.global_norm([tf.math.scalar_mul(multiplier, g) for g in grads if g is not None])
         )
-        self._metrics["total_num_params"].update_state(
-            utils.count_params(self._model, verbose=self._print_params)
-        )
+        self._metrics["total_num_params"].update_state(utils.count_params(self._model, verbose=self._print_params))
         self._print_params = False
         logging.info("train_step ends...")
 

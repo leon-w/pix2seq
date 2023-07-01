@@ -41,14 +41,10 @@ class TaskInstanceSegmentation(task_lib.Task):
         super().__init__(config)
         if config.task.get("max_seq_len", "auto") == "auto":
             self.config.task.max_seq_len = 5 + config.task.max_points_per_object * 2
-        self._category_names = task_utils.get_category_names(
-            config.dataset.get("category_names_path")
-        )
+        self._category_names = task_utils.get_category_names(config.dataset.get("category_names_path"))
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._coco_metrics = metric_registry.MetricRegistry.lookup(
-                metric_config.name
-            )(config)
+            self._coco_metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
         else:
             self._coco_metrics = None
 
@@ -73,9 +69,7 @@ class TaskInstanceSegmentation(task_lib.Task):
 
         dataset = dataset.map(add_image_size_before_cropping)
 
-        dataset = data_utils.maybe_unbatch_instances_and_crop_image_to_bbox(
-            dataset, self.config
-        )
+        dataset = data_utils.maybe_unbatch_instances_and_crop_image_to_bbox(dataset, self.config)
 
         if training:
             dataset = dataset.filter(  # Filter out images with no annotations.
@@ -125,9 +119,7 @@ class TaskInstanceSegmentation(task_lib.Task):
         label_seq = utils.pad_to_max_len(label_seq, config.max_seq_len + 1, -1)
         input_seq, target_seq = label_seq[..., :-1], label_seq[..., 1:]
 
-        token_weights = tf.concat(
-            [tf.zeros_like(prompt_seq)[..., :-1], tf.ones_like(response_seq)], -1
-        )
+        token_weights = tf.concat([tf.zeros_like(prompt_seq)[..., :-1], tf.ones_like(response_seq)], -1)
         token_weights = tf.cast(token_weights, tf.float32)
         pad_t = tf.expand_dims(tf.greater(batched_examples["label"], 0), -1)
         token_weights = tf.where(pad_t, token_weights, tf.zeros_like(token_weights))
@@ -239,16 +231,12 @@ class TaskInstanceSegmentation(task_lib.Task):
 
         # Tile image related features to support multiple instances per image.
         bsz = tf.shape(images)[0]
-        n_instances = tile_factor = tf.math.floordiv(
-            tf.shape(pred_seq)[0], bsz * config.ensemble_num_samples
-        )
+        n_instances = tile_factor = tf.math.floordiv(tf.shape(pred_seq)[0], bsz * config.ensemble_num_samples)
         image_ids = utils.tile_along_batch(image_ids, tile_factor)
 
         # Tile the following features to support multiple samples per instance.
         tile_factor *= config.ensemble_num_samples
-        image_size_before_cropping = utils.tile_along_batch(
-            image_size_before_cropping, tile_factor
-        )
+        image_size_before_cropping = utils.tile_along_batch(image_size_before_cropping, tile_factor)
         orig_image_size = utils.tile_along_batch(orig_image_size, tile_factor)
         unpadded_image_size = utils.tile_along_batch(unpadded_image_size, tile_factor)
 
@@ -259,9 +247,7 @@ class TaskInstanceSegmentation(task_lib.Task):
             scale = utils.tf_float32(image_size)
         else:
             # scale points to original image size during eval.
-            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(
-                unpadded_image_size
-            )
+            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(unpadded_image_size)
             scale = scale * utils.tf_float32(orig_image_size)
             scale = tf.expand_dims(scale, 1)
 
@@ -343,36 +329,22 @@ class TaskInstanceSegmentation(task_lib.Task):
 
         # Log/accumulate metrics.
         mask_size = unpadded_image_size if training else image_size_before_cropping
-        pred_masks_rle = segment_to_mask_rle(
-            pred_points_rescaled.numpy(), mask_size.numpy()
-        )
+        pred_masks_rle = segment_to_mask_rle(pred_points_rescaled.numpy(), mask_size.numpy())
         # Ensemble mask for metrics.
         if self._coco_metrics:
             pred_masks_np = mask_rle_to_mask_np(pred_masks_rle, mask_size.numpy())
-            pred_masks_np = ensemble_mask_np(
-                pred_masks_np, (bsz * n_instances).numpy(), num_samples, threshold
-            )
-            self._coco_metrics.record_prediction(
-                image_ids, pred_masks_np, pred_classes, scores
-            )
+            pred_masks_np = ensemble_mask_np(pred_masks_np, (bsz * n_instances).numpy(), num_samples, threshold)
+            self._coco_metrics.record_prediction(image_ids, pred_masks_np, pred_classes, scores)
 
         # Image summary.
         image_size = images.shape[1:3].as_list()
         pred_points_rescaled = utils.scale_points(pred_points, image_size)
-        pred_masks_rle = segment_to_mask_rle(
-            pred_points_rescaled.numpy(), image_size, is_single_shape=True
-        )
-        pred_masks_np = mask_rle_to_mask_np(
-            pred_masks_rle, image_size, is_single_shape=True
-        )
+        pred_masks_rle = segment_to_mask_rle(pred_points_rescaled.numpy(), image_size, is_single_shape=True)
+        pred_masks_np = mask_rle_to_mask_np(pred_masks_rle, image_size, is_single_shape=True)
         # Ensemble masks for image summary.
-        pred_masks_np = ensemble_mask_np(
-            pred_masks_np, (bsz * n_instances).numpy(), num_samples, threshold
-        )
+        pred_masks_np = ensemble_mask_np(pred_masks_np, (bsz * n_instances).numpy(), num_samples, threshold)
         pred_masks_np = np.stack(pred_masks_np).astype(np.uint8)
-        mask_new_shape = [pred_masks_np.shape[0] // n_instances, n_instances] + list(
-            pred_masks_np.shape[1:]
-        )
+        mask_new_shape = [pred_masks_np.shape[0] // n_instances, n_instances] + list(pred_masks_np.shape[1:])
         pred_masks_np = np.reshape(pred_masks_np, mask_new_shape)
         pred_bboxes = tf.reshape(pred_bboxes, [-1, n_instances, 4])
         pred_classes = tf.reshape(pred_classes, [-1, n_instances])
@@ -384,11 +356,7 @@ class TaskInstanceSegmentation(task_lib.Task):
                 bboxes_ = bboxes_.numpy()
                 classes_ = classes_.numpy()
                 scores_ = scores_.numpy()
-                tag = (
-                    summary_tag
-                    + "/"
-                    + task_utils.join_if_not_none([tag_, "mask", eval_step], "_")
-                )
+                tag = summary_tag + "/" + task_utils.join_if_not_none([tag_, "mask", eval_step], "_")
                 images_ = np.copy(tf.image.convert_image_dtype(images, tf.uint8))
                 ret_images[tag_] = add_image_summary_with_mask(
                     images_,
@@ -421,9 +389,7 @@ class TaskInstanceSegmentation(task_lib.Task):
             with tf.name_scope(eval_tag):
                 self._log_metrics(metrics, step)
             summary_writer.flush()
-        result_json_path = os.path.join(
-            self.config.model_dir, eval_tag + "cocoeval.pkl"
-        )
+        result_json_path = os.path.join(self.config.model_dir, eval_tag + "cocoeval.pkl")
         if self._coco_metrics:
             tosave = {
                 "dataset": self._coco_metrics.dataset,
@@ -447,14 +413,10 @@ class TaskInstanceSegmentation(task_lib.Task):
             self._coco_metrics.reset_states()
 
 
-def add_image_summary_with_mask(
-    images, bboxes, masks, classes, scores, category_names, step, tag
-):
+def add_image_summary_with_mask(images, bboxes, masks, classes, scores, category_names, step, tag):
     """Adds image summary with GT / predicted points."""
     new_images = []
-    for image_, boxes_, masks_, classes_, scores_ in zip(
-        images, bboxes, masks, classes, scores
-    ):
+    for image_, boxes_, masks_, classes_, scores_ in zip(images, bboxes, masks, classes, scores):
         keep_indices = np.where(classes_ > 0)[0]
         image = vis_utils.visualize_boxes_and_labels_on_image_array(
             image=image_,
@@ -481,15 +443,9 @@ def _split_segment(pred_segment):
         # padding token. Verify this is correct.
         # TODO(srbs): Should we raise an error if one coordinate is pad/separator
         # and the other is not?
-        if (
-            pred_segment[x_index] == vocab.PADDING_FLOAT
-            or pred_segment[y_index] == vocab.PADDING_FLOAT
-        ):
+        if pred_segment[x_index] == vocab.PADDING_FLOAT or pred_segment[y_index] == vocab.PADDING_FLOAT:
             break
-        if (
-            pred_segment[x_index] == vocab.SEPARATOR_FLOAT
-            or pred_segment[y_index] == vocab.SEPARATOR_FLOAT
-        ):
+        if pred_segment[x_index] == vocab.SEPARATOR_FLOAT or pred_segment[y_index] == vocab.SEPARATOR_FLOAT:
             result.append([])
         else:
             result[-1].extend([pred_segment[x_index], pred_segment[y_index]])

@@ -112,9 +112,7 @@ class Model(image_diffusion_model.Model):
         config = self.config
         samples_shape = [num_samples, *self.sample_shape]
         if config.conditional == "class":
-            labels = tf.random.uniform(
-                [num_samples], 0, self.num_classes, dtype=tf.int32
-            )
+            labels = tf.random.uniform([num_samples], 0, self.num_classes, dtype=tf.int32)
             labels = tf.one_hot(labels, self.num_classes)
         else:
             labels = None
@@ -144,9 +142,7 @@ class Model(image_diffusion_model.Model):
         images = (images * 2.0 - 1.0) * config.b_scale  # convert 0,1 -> -s,s
         seq_len = self.sample_shape[0]
         cond_images, images = images[:, :-seq_len], images[:, -seq_len:]
-        images_noised, noise, _, gamma = self.scheduler.add_noise(
-            images, time_step=time_step
-        )
+        images_noised, noise, _, gamma = self.scheduler.add_noise(images, time_step=time_step)
         images_noised_ori = images_noised
         if config.self_cond != "none":
             sc_rate = config.get("self_cond_rate", 0.5)
@@ -156,9 +152,7 @@ class Model(image_diffusion_model.Model):
                 num_sc_examples = tf.shape(images)[0]
             else:
                 sc_drop_rate = 0.0
-                num_sc_examples = tf.cast(
-                    tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32
-                )
+                num_sc_examples = tf.cast(tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32)
             cond_denoise = self.get_cond_denoise(
                 labels[:num_sc_examples],
                 cond_images[:num_sc_examples] if cond_images is not None else None,

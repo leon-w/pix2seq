@@ -33,19 +33,13 @@ def get_config(config_str=None):
         task_variant = "panoptic_segmentation@coco/2017_panoptic_segmentation"
     encoder_variant = "resnet-c"
     decoder_variant = "transunet"
-    config = config_base.get_config(
-        f"{task_variant},{encoder_variant},{decoder_variant},{IMAGE_SIZE},{MASK_SIZE}"
-    )
+    config = config_base.get_config(f"{task_variant},{encoder_variant},{decoder_variant},{IMAGE_SIZE},{MASK_SIZE}")
     image_size = [int(x) for x in IMAGE_SIZE.split("x")]
     mask_size = [int(x) for x in MASK_SIZE.split("x")]
-    config.task.train_transforms = (
-        transform_configs.get_panoptic_segmentation_train_transforms(
-            image_size, mask_size, 1.0, 1.0, 0.0
-        )
+    config.task.train_transforms = transform_configs.get_panoptic_segmentation_train_transforms(
+        image_size, mask_size, 1.0, 1.0, 0.0
     )
-    config.task.eval_transforms = (
-        transform_configs.get_panoptic_segmentation_eval_transforms(image_size)
-    )
+    config.task.eval_transforms = transform_configs.get_panoptic_segmentation_eval_transforms(image_size)
     config.model.name = "panoptic_diffusion"
     config.model.train_schedule = "cosine"
     config.model.l_tile_factors = 1
@@ -89,9 +83,7 @@ def get_sweep(h):
                         h.sweep("config.model.self_cond", ["none"]),
                         h.sweep("config.model.conditional", ["cat+attn"]),
                         h.sweep("config.model.mask_weight_p", [0.2]),
-                        h.sweep(
-                            "config.task.train_transforms[1].min_scale", [1.0]
-                        ),  # jitter_scale
+                        h.sweep("config.task.train_transforms[1].min_scale", [1.0]),  # jitter_scale
                         h.sweep("config.task.train_transforms[1].max_scale", [3.0]),
                         h.sweep(
                             "config.task.train_transforms[4].color_jitter_strength",
@@ -152,9 +144,7 @@ def get_eval_args_and_tags(config, args, unused_config_flag):
                     for min_pixels in [40]:
                         eval_args = args.copy()
                         eval_tag = f"ev_{eval_split}_{sampler}_i{iterations}_td{td}_p{min_pixels}"
-                        results_dir = (
-                            eval_args["model_dir"] + "/" + eval_tag
-                        )  # pylint: disable=unused-variable
+                        results_dir = eval_args["model_dir"] + "/" + eval_tag  # pylint: disable=unused-variable
                         eval_args.update(
                             {
                                 "config.eval.tag": eval_tag,

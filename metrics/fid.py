@@ -58,12 +58,7 @@ def get_fid_score(mu1, sigma1, mu2, sigma2):
     mu2 = np.asarray(mu2, dtype=np.float64)
     sigma1 = np.asarray(sigma1, dtype=np.float64)
     sigma2 = np.asarray(sigma2, dtype=np.float64)
-    return (
-        np.square(mu1 - mu2).sum()
-        + sigma1.trace()
-        + sigma2.trace()
-        - 2 * _trace_sqrt_product(sigma1, sigma2)
-    )
+    return np.square(mu1 - mu2).sum() + sigma1.trace() + sigma2.trace() - 2 * _trace_sqrt_product(sigma1, sigma2)
 
 
 @dataclasses.dataclass
@@ -108,9 +103,7 @@ class TFGANMetricEvaluator:
                 1536,
                 2048,
             ]
-            filename = "{}/imagenet_man_{}_stats_real.npz".format(
-                stats_path, self.image_size
-            )
+            filename = "{}/imagenet_man_{}_stats_real.npz".format(stats_path, self.image_size)
             with tf.io.gfile.GFile(filename, "rb") as fin:
                 stats_real = np.load(fin)
                 return stats_real["mu"], stats_real["cov"]
@@ -125,9 +118,7 @@ class TFGANMetricEvaluator:
 
         with tf.io.gfile.GFile(filename, "rb") as fin:
             stats_real = np.load(fin)
-            logging.info(
-                "FID stats loading done! Number of examples %d", stats_real.shape[0]
-            )
+            logging.info("FID stats loading done! Number of examples %d", stats_real.shape[0])
             return get_stats_for_fid(stats_real)
 
     def preprocess_inputs(self, inputs, is_n1p1=False):

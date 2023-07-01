@@ -49,12 +49,8 @@ def get_config(config_str=None):
             quantization_bins=1000,
             max_instances_per_image=100,
             max_instances_per_image_test=100,
-            train_transforms=transform_configs.get_object_detection_train_transforms(
-                image_size, 100
-            ),
-            eval_transforms=transform_configs.get_object_detection_eval_transforms(
-                image_size, 100
-            ),
+            train_transforms=transform_configs.get_object_detection_train_transforms(image_size, 100),
+            eval_transforms=transform_configs.get_object_detection_eval_transforms(image_size, 100),
             # Train on both ground-truth and (augmented) noisy objects.
             noise_bbox_weight=1.0,
             eos_token_weight=0.1,
@@ -85,12 +81,8 @@ def get_config(config_str=None):
             max_instances_per_image=10,
             max_instances_per_image_test=10,  # for debug only
             max_points_per_object=128,
-            train_transforms=transform_configs.get_instance_segmentation_train_transforms(
-                image_size, 10
-            ),
-            eval_transforms=transform_configs.get_instance_segmentation_eval_transforms(
-                image_size, 10
-            ),
+            train_transforms=transform_configs.get_instance_segmentation_train_transforms(image_size, 10),
+            eval_transforms=transform_configs.get_instance_segmentation_eval_transforms(image_size, 10),
             shuffle_polygon_start_point=False,
             top_k=0,
             top_p=0.8,
@@ -127,12 +119,8 @@ def get_config(config_str=None):
             max_instances_per_image_test=1,
             max_points_per_object=17,
             min_bbox_score=0.0,
-            train_transforms=transform_configs.get_keypoint_detection_train_transforms(
-                image_size, 1
-            ),
-            eval_transforms=transform_configs.get_keypoint_detection_eval_transforms(
-                image_size, 1
-            ),
+            train_transforms=transform_configs.get_keypoint_detection_train_transforms(image_size, 1),
+            eval_transforms=transform_configs.get_keypoint_detection_eval_transforms(image_size, 1),
             top_k=0,
             top_p=0.1,
             temperature=1.0,
@@ -155,12 +143,8 @@ def get_config(config_str=None):
             image_size=image_size,
             max_seq_len=128,
             captions_per_image=5,
-            train_transforms=transform_configs.get_captioning_train_transforms(
-                image_size
-            ),
-            eval_transforms=transform_configs.get_captioning_eval_transforms(
-                image_size
-            ),
+            train_transforms=transform_configs.get_captioning_train_transforms(image_size),
+            eval_transforms=transform_configs.get_captioning_eval_transforms(image_size),
             eos_token_weight=0.1,
             input_seq_drop_rate=0.5,
             top_k=0,
@@ -281,20 +265,14 @@ def get_obj365_pretrained_checkpoint(
         raise ValueError("Unknown encoder_variant {}".format(encoder_variant))
 
 
-def get_multi_task_checkpoint_dir(
-    encoder_variant, image_size
-):  # pylint: disable=missing-function-docstring
+def get_multi_task_checkpoint_dir(encoder_variant, image_size):  # pylint: disable=missing-function-docstring
     CKPT_PREFIX = "gs://pix2seq"
     if encoder_variant == "vit-b" and image_size == (640, 640):
         return f"{CKPT_PREFIX}/multi_task/ckpt/vit_b_640x640"
     elif encoder_variant == "vit-b" and image_size == (1024, 1024):
         return f"{CKPT_PREFIX}/multi_task/ckpt/vit_b_1024x1024"
     else:
-        raise ValueError(
-            "Unknown encoder_variant {} or image_size {}".format(
-                encoder_variant, image_size
-            )
-        )
+        raise ValueError("Unknown encoder_variant {} or image_size {}".format(encoder_variant, image_size))
 
 
 def get_tokenizer_path():  # pylint: disable=missing-function-docstring

@@ -32,9 +32,7 @@ def scaled_sum(inputs):
 
 
 def get_variable_initializer(scale=1e-10):
-    return tf.keras.initializers.VarianceScaling(
-        scale=scale, mode="fan_avg", distribution="uniform"
-    )
+    return tf.keras.initializers.VarianceScaling(scale=scale, mode="fan_avg", distribution="uniform")
 
 
 def get_norm(norm_type, **kwargs):
@@ -47,9 +45,7 @@ def get_norm(norm_type, **kwargs):
             name=kwargs.get("name", "group_nrom"),
         )
     elif norm_type == "layer_norm":
-        return tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name=kwargs.get("name", "layer_norm")
-        )
+        return tf.keras.layers.LayerNormalization(epsilon=1e-6, name=kwargs.get("name", "layer_norm"))
     elif norm_type == "none":
         return tf.identity
     else:
@@ -140,12 +136,8 @@ class ResnetBasicBlock(tf.keras.layers.Layer):
             kernel_initializer=get_variable_initializer(),
             name="conv_1",
         )
-        self.group_norm_0 = get_norm(
-            "group_norm", num_groups=min(input_shape[-1] // 4, 32), name="group_norm_0"
-        )
-        self.group_norm_1 = get_norm(
-            "group_norm", num_groups=min(self.out_dim // 4, 32), name="group_norm_1"
-        )
+        self.group_norm_0 = get_norm("group_norm", num_groups=min(input_shape[-1] // 4, 32), name="group_norm_0")
+        self.group_norm_1 = get_norm("group_norm", num_groups=min(self.out_dim // 4, 32), name="group_norm_1")
 
     def call(self, x, emb, training):
         """x in [bsz, h, w, c], emb in [bsz, c']."""
@@ -216,9 +208,7 @@ class ConvUnit(tf.keras.layers.Layer):
                 name="conv_dn",
             )
         elif self.up_dn_sample == "up":
-            self.upsample = tf.keras.layers.UpSampling2D(
-                size=(2, 2), interpolation="nearest"
-            )
+            self.upsample = tf.keras.layers.UpSampling2D(size=(2, 2), interpolation="nearest")
             self.conv_up = tf.keras.layers.Conv2D(
                 filters=out_dim,
                 kernel_size=[3, 3],
@@ -246,9 +236,7 @@ class ConvUnit(tf.keras.layers.Layer):
 
             self.do_attn = input_shape[1] in config.mhsa_resolutions
             if self.do_attn:
-                self.mhsa_norms[str(i)] = get_norm(
-                    config.norm_type, name=f"mhsa_norms_{i}"
-                )
+                self.mhsa_norms[str(i)] = get_norm(config.norm_type, name=f"mhsa_norms_{i}")
                 self.mhsa_blocks[str(i)] = tf.keras.layers.MultiHeadAttention(
                     num_heads=out_dim // config.per_head_dim,
                     key_dim=config.per_head_dim,
@@ -258,9 +246,7 @@ class ConvUnit(tf.keras.layers.Layer):
                 )
 
                 if config.conditioning:
-                    self.mhca_norms[str(i)] = get_norm(
-                        config.norm_type, name=f"mhca_norms_{i}"
-                    )
+                    self.mhca_norms[str(i)] = get_norm(config.norm_type, name=f"mhca_norms_{i}")
                     self.mhca_blocks[str(i)] = tf.keras.layers.MultiHeadAttention(
                         num_heads=out_dim // config.per_head_dim,
                         key_dim=config.per_head_dim,
@@ -343,9 +329,7 @@ class Transformer(tf.keras.layers.Layer):
             kernel_initializer=get_variable_initializer(1.0),
             name="trans_conv_in",
         )
-        self.trans_conv_in_norm = get_norm(
-            "group_norm", num_groups=min(self.dim // 4, 32), name="trans_conv_in_norm"
-        )
+        self.trans_conv_in_norm = get_norm("group_norm", num_groups=min(self.dim // 4, 32), name="trans_conv_in_norm")
 
         n_rows, n_cols = height // strides, width // strides
         if self.pos_encoding:
@@ -369,9 +353,7 @@ class Transformer(tf.keras.layers.Layer):
             name="transformer_decoder",
         )
 
-        self.trans_conv_out_norm = get_norm(
-            "group_norm", num_groups=min(self.dim // 4, 32), name="trans_conv_out_norm"
-        )
+        self.trans_conv_out_norm = get_norm("group_norm", num_groups=min(self.dim // 4, 32), name="trans_conv_out_norm")
         self.trans_conv_out = tf.keras.layers.Conv2D(
             filters=self.dim,
             kernel_size=1,
@@ -459,9 +441,7 @@ class TransUNet(tf.keras.layers.Layer):
     def build(self, input_shape):
         config = self.config
         self.in_dim = input_shape[-1]
-        self.time_emb = ScalarEmbedding(
-            dim=config.dim, scaling=config.time_scaling, name="time_emb"
-        )
+        self.time_emb = ScalarEmbedding(dim=config.dim, scaling=config.time_scaling, name="time_emb")
 
         self.conv_in = tf.keras.layers.Conv2D(
             filters=config.dim * config.ch_multipliers[0],
@@ -540,9 +520,7 @@ class TransUNet(tf.keras.layers.Layer):
                 name="transformer",
             )
 
-        self.group_norm_out = get_norm(
-            "group_norm", num_groups=min(config.dim // 4, 32), name="group_norm_out"
-        )
+        self.group_norm_out = get_norm("group_norm", num_groups=min(config.dim // 4, 32), name="group_norm_out")
         if config.outp_softmax_groups == 0:
             self.conv_out = tf.keras.layers.Conv2D(
                 filters=config.out_dim * config.in_strides**2,

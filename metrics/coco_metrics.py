@@ -77,9 +77,7 @@ class _CocoNonPanopticMetric:
         self.gt_annotations_path = gt_annotations_path
         self.coco_gt = COCO(gt_annotations_path)
         self.iou_type = iou_type
-        self.filter_images_not_in_predictions = gt_annotations_path and bool(
-            config.eval.steps
-        )
+        self.filter_images_not_in_predictions = gt_annotations_path and bool(config.eval.steps)
         self.reset_states()
 
     def reset_states(self):
@@ -98,12 +96,8 @@ class _CocoNonPanopticMetric:
         """Returns new dataset only containing image ids in detections."""
         image_ids = set([dt["image_id"] for dt in detections])
         new_dataset = copy.copy(dataset)  # Shallow copy
-        new_dataset["images"] = [
-            img for img in new_dataset["images"] if img["id"] in image_ids
-        ]
-        new_dataset["annotations"] = [
-            ann for ann in new_dataset["annotations"] if ann["image_id"] in image_ids
-        ]
+        new_dataset["images"] = [img for img in new_dataset["images"] if img["id"] in image_ids]
+        new_dataset["annotations"] = [ann for ann in new_dataset["annotations"] if ann["image_id"] in image_ids]
         return new_dataset
 
     def _evaluate(self):
@@ -126,10 +120,7 @@ class _CocoNonPanopticMetric:
         # Use manual GT annotations if provided.
         if not self.gt_annotations_path:
             dataset = self.manual_dataset
-            dataset["categories"] = [
-                {"id": int(category_id)}
-                for category_id in list(set(dataset["category_ids"]))
-            ]
+            dataset["categories"] = [{"id": int(category_id)} for category_id in list(set(dataset["category_ids"]))]
         if self.filter_images_not_in_predictions:
             # Only keep image_ids in self.detections.
             dataset = self._filter_dataset(dataset, self.detections)
@@ -173,12 +164,8 @@ class CocoInstanceSegmentationMetric(_CocoNonPanopticMetric):
             denotes padding.
           scores: [batch]
         """
-        (image_ids, segments, classes, scores) = to_numpy(
-            image_ids, segments, classes, scores
-        )
-        segments = [
-            mask_lib.encode(np.asfortranarray(curr_mask)) for curr_mask in segments
-        ]
+        (image_ids, segments, classes, scores) = to_numpy(image_ids, segments, classes, scores)
+        segments = [mask_lib.encode(np.asfortranarray(curr_mask)) for curr_mask in segments]
         batch_size = len(image_ids)
         for i in range(batch_size):
             if classes[i] != 0:
@@ -199,12 +186,8 @@ class CocoInstanceSegmentationMetric(_CocoNonPanopticMetric):
           areas: [batch]
         """
         assert not self.gt_annotations_path, _CONFLICTING_ANNOTATIONS_ERROR
-        (image_ids, segments, classes, areas) = to_numpy(
-            image_ids, segments, classes, areas
-        )
-        segments = [
-            mask_lib.encode(np.asfortranarray(curr_mask)) for curr_mask in segments
-        ]
+        (image_ids, segments, classes, areas) = to_numpy(image_ids, segments, classes, areas)
+        segments = [mask_lib.encode(np.asfortranarray(curr_mask)) for curr_mask in segments]
         batch_size = len(image_ids)
         for i in range(batch_size):
             if classes[i] != 0:
@@ -244,9 +227,7 @@ class CocoKeypointDetectionMetric(_CocoNonPanopticMetric):
             denotes padding.
           scores: [batch]
         """
-        (image_ids, keypoints, classes, scores) = to_numpy(
-            image_ids, keypoints, classes, scores
-        )
+        (image_ids, keypoints, classes, scores) = to_numpy(image_ids, keypoints, classes, scores)
         batch_size = len(image_ids)
         for i in range(batch_size):
             if classes[i] == 1:
@@ -258,9 +239,7 @@ class CocoKeypointDetectionMetric(_CocoNonPanopticMetric):
                 dt["score"] = scores[i]
                 self.detections.append(dt)
 
-    def record_groundtruth(
-        self, image_ids, keypoints, bbox, classes, area, iscrowd, num_keypoints
-    ):
+    def record_groundtruth(self, image_ids, keypoints, bbox, classes, area, iscrowd, num_keypoints):
         """Record GT annotations.
 
         Args:
@@ -374,9 +353,7 @@ class CocoObjectDetectionMetric(_CocoNonPanopticMetric):
           is_crowds: [batch]
         """
         assert not self.gt_annotations_path, _CONFLICTING_ANNOTATIONS_ERROR
-        (image_ids, bboxes, classes, areas, is_crowds) = to_numpy(
-            image_ids, bboxes, classes, areas, is_crowds
-        )
+        (image_ids, bboxes, classes, areas, is_crowds) = to_numpy(image_ids, bboxes, classes, areas, is_crowds)
         batch_size = len(image_ids)
         for i in range(batch_size):
             self.manual_dataset["images"].append(
@@ -441,16 +418,12 @@ class CocoCaptioningEvaluationMetric:
           dict from metric name to float value
         """
         result_file = self._write_result_file(step)
-        return dict(
-            zip(self.metric_names, np.zeros([len(self.metric_names)], dtype=np.float32))
-        )
+        return dict(zip(self.metric_names, np.zeros([len(self.metric_names)], dtype=np.float32)))
 
     def _write_result_file(self, step):
         result_file = None
         if self.captions and self.result_dir:
-            result_file = os.path.join(
-                self.result_dir, f"coco_result_{step}_{uuid.uuid4()}.json"
-            )
+            result_file = os.path.join(self.result_dir, f"coco_result_{step}_{uuid.uuid4()}.json")
             with tf.io.gfile.GFile(result_file, "w") as f:
                 json.dump(self.captions, f)
         return result_file
@@ -468,9 +441,7 @@ def get_annotations_path_for_metrics(
     annotations_dir = config.dataset.get("coco_annotations_dir_for_metrics")
     if not annotations_dir:
         return None
-    split = (
-        config.dataset.train_split if config.training else (config.dataset.eval_split)
-    )
+    split = config.dataset.train_split if config.training else (config.dataset.eval_split)
     filename = (
         config.dataset.get("train_filename_for_metrics")
         if split == "train"

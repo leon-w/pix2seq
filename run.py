@@ -35,6 +35,7 @@ from metrics import coco_metrics  # pylint: disable=unused-import
 from models import ar_model  # pylint: disable=unused-import
 from models import image_ar_model  # pylint: disable=unused-import
 from models import image_diffusion_model  # pylint: disable=unused-import
+
 # from models import latent_diffusion_model  # pylint: disable=unused-import
 from models import video_diffusion_model  # pylint: disable=unused-import
 from models import image_discrete_diffusion_model  # pylint: disable=unused-import
@@ -60,14 +61,10 @@ flags.DEFINE_string("model_dir", None, "Directory to store checkpoints and summa
 flags.DEFINE_enum("mode", TRAIN, [TRAIN, EVAL], "train or eval")
 flags.DEFINE_bool("use_tpu", False, "Whether to use tpu.")
 flags.DEFINE_string("master", None, "Address/name of the TensorFlow master to use.")
-flags.DEFINE_bool(
-    "run_eagerly", False, "Whether to run eagerly (for interactive debugging)."
-)
+flags.DEFINE_bool("run_eagerly", False, "Whether to run eagerly (for interactive debugging).")
 flags.mark_flag_as_required("model_dir")
 
-config_flags.DEFINE_config_file(
-    "config", "path/to/config/file.py", "The config file.", lock_config=False
-)
+config_flags.DEFINE_config_file("config", "path/to/config/file.py", "The config file.", lock_config=False)
 
 FLAGS = flags.FLAGS
 
@@ -124,9 +121,7 @@ def build_tasks_and_datasets(config: ml_collections.ConfigDict, training: bool):
             input_fns.append(
                 ds.pipeline(
                     process_single_example=task.preprocess_single,
-                    global_batch_size=(
-                        config.train.batch_size if training else config.eval.batch_size
-                    ),
+                    global_batch_size=(config.train.batch_size if training else config.eval.batch_size),
                     training=training,
                 )
             )
@@ -145,9 +140,7 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
         # Restore model checkpoint.
         model = model_lib.ModelRegistry.lookup(config.model.name)(config)
         logging.info("Restoring from %s", ckpt)
-        checkpoint = tf.train.Checkpoint(
-            model=model, global_step=tf.Variable(0, dtype=tf.int64)
-        )
+        checkpoint = tf.train.Checkpoint(model=model, global_step=tf.Variable(0, dtype=tf.int64))
         checkpoint.restore(ckpt).expect_partial()  # Not restore optimizer.
         global_step = checkpoint.global_step
         logging.info("Performing eval at step %d", global_step.numpy())
@@ -208,18 +201,14 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
     result_json_path = os.path.join(FLAGS.model_dir, eval_tag + "_result.json")
     with tf.io.gfile.GFile(result_json_path, "w") as f:
         json.dump({k: float(v) for k, v in result.items()}, f)
-    result_json_path = os.path.join(
-        FLAGS.model_dir, eval_tag + "result_%d.json" % result["global_step"]
-    )
+    result_json_path = os.path.join(FLAGS.model_dir, eval_tag + "result_%d.json" % result["global_step"])
     with tf.io.gfile.GFile(result_json_path, "w") as f:
         json.dump({k: float(v) for k, v in result.items()}, f)
 
     return result
 
 
-def perform_training(
-    config, datasets, tasks, train_steps, steps_per_loop, num_train_examples, strategy
-):
+def perform_training(config, datasets, tasks, train_steps, steps_per_loop, num_train_examples, strategy):
     """Main training logic."""
     with strategy.scope():
         # Setup training elements.
@@ -252,9 +241,7 @@ def perform_training(
                 timestamp = time.time()
                 with tf.name_scope("train"):
                     for metric_name, metric_val in trainer.metrics.items():
-                        tf.summary.scalar(
-                            metric_name, metric_val.result().numpy(), global_step
-                        )
+                        tf.summary.scalar(metric_name, metric_val.result().numpy(), global_step)
                     tf.summary.scalar(
                         "learning_rate",
                         trainer.learning_rate(tf.cast(global_step, dtype=tf.float32)),
@@ -265,9 +252,7 @@ def perform_training(
             progress = cur_step / float(train_steps) * 100
             eta = (train_steps - cur_step) / steps_per_sec / 60.0
             logging.info(
-                "Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins".format(
-                    cur_step, train_steps, progress, eta
-                )
+                "Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins".format(cur_step, train_steps, progress, eta)
             )
             trainer.reset()
         logging.info("###########################################")
@@ -293,12 +278,8 @@ def main(unused_argv):
         tasks, dses, dataset = build_tasks_and_datasets(config, training)
 
         # Calculate steps stuff using last task info (assuming all tasks the same.)
-        train_steps = utils.get_train_steps(
-            dataset, config.train.steps, config.train.epochs, config.train.batch_size
-        )
-        eval_steps = utils.get_eval_steps(
-            dataset, config.eval.steps, config.eval.batch_size
-        )
+        train_steps = utils.get_train_steps(dataset, config.train.steps, config.train.epochs, config.train.batch_size)
+        eval_steps = utils.get_eval_steps(dataset, config.eval.steps, config.eval.batch_size)
         checkpoint_steps = utils.get_checkpoint_steps(
             dataset,
             config.train.checkpoint_steps,
@@ -326,9 +307,7 @@ def main(unused_argv):
         if not checkpoint_dir:
             checkpoint_dir = FLAGS.model_dir
         for ckpt in tf.train.checkpoints_iterator(checkpoint_dir, min_interval_secs=15):
-            result = perform_evaluation(
-                config, dses[0], tasks[0], eval_steps, ckpt, strategy
-            )
+            result = perform_evaluation(config, dses[0], tasks[0], eval_steps, ckpt, strategy)
             if result["global_step"] >= train_steps:
                 logging.info("Eval complete. Exiting...")
                 break

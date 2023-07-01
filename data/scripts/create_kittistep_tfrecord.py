@@ -54,9 +54,7 @@ def _decode_panoptic_map(panoptic_map_path: str) -> Optional[str]:
     with tf.io.gfile.GFile(panoptic_map_path, "rb") as f:
         panoptic_map = np.array(Image.open(f)).astype(np.int32)
     semantic_map = panoptic_map[:, :, 0]
-    instance_map = (
-        panoptic_map[:, :, 1] * _ENCODED_INSTANCE_LABEL_DIVISOR + panoptic_map[:, :, 2]
-    )
+    instance_map = panoptic_map[:, :, 1] * _ENCODED_INSTANCE_LABEL_DIVISOR + panoptic_map[:, :, 2]
     panoptic_map = semantic_map * _INSTANCE_LABEL_DIVISOR + instance_map
     return panoptic_map.tobytes()
 
@@ -71,49 +69,30 @@ def generate_tf_sequence_example(image_list, panoptic_map_list, filename, video_
     example_proto = tf.train.SequenceExample(
         context=tf.train.Features(
             feature={
-                "image/filename": tf.train.Feature(
-                    bytes_list=tf.train.BytesList(value=[bytes(filename, "utf-8")])
-                ),
-                "image/format": tf.train.Feature(
-                    bytes_list=tf.train.BytesList(value=[bytes("png", "utf-8")])
-                ),
-                "image/channels": tf.train.Feature(
-                    int64_list=tf.train.Int64List(value=[c])
-                ),
-                "image/height": tf.train.Feature(
-                    int64_list=tf.train.Int64List(value=[height])
-                ),
-                "image/width": tf.train.Feature(
-                    int64_list=tf.train.Int64List(value=[width])
-                ),
+                "image/filename": tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(filename, "utf-8")])),
+                "image/format": tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes("png", "utf-8")])),
+                "image/channels": tf.train.Feature(int64_list=tf.train.Int64List(value=[c])),
+                "image/height": tf.train.Feature(int64_list=tf.train.Int64List(value=[height])),
+                "image/width": tf.train.Feature(int64_list=tf.train.Int64List(value=[width])),
                 "image/segmentation/class/format": tf.train.Feature(
                     bytes_list=tf.train.BytesList(value=[bytes("raw", "utf-8")])
                 ),
                 "video/sequence_id": tf.train.Feature(
                     bytes_list=tf.train.BytesList(value=[bytes(video_name, "utf-8")])
                 ),
-                "video/frame_id": tf.train.Feature(
-                    bytes_list=tf.train.BytesList(value=[bytes(frame_id, "utf-8")])
-                ),
+                "video/frame_id": tf.train.Feature(bytes_list=tf.train.BytesList(value=[bytes(frame_id, "utf-8")])),
             }
         ),
         feature_lists=tf.train.FeatureLists(
             feature_list={
                 "image/encoded_list": tf.train.FeatureList(
                     feature=[
-                        tf.train.Feature(
-                            bytes_list=tf.train.BytesList(
-                                value=[tf.io.encode_png(image).numpy()]
-                            )
-                        )
+                        tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.io.encode_png(image).numpy()]))
                         for image in image_list
                     ]
                 ),
                 "image/segmentation/class/encoded_list": tf.train.FeatureList(
-                    feature=[
-                        tf.train.Feature(bytes_list=tf.train.BytesList(value=[seg]))
-                        for seg in panoptic_map_list
-                    ]
+                    feature=[tf.train.Feature(bytes_list=tf.train.BytesList(value=[seg])) for seg in panoptic_map_list]
                 ),
             }
         ),
@@ -144,9 +123,7 @@ def main(unused_argv):
 
     k = 0
     for i, video_name in enumerate(video_names):
-        frame_filenames = tf.io.gfile.listdir(
-            os.path.join(raw_image_dir, split, video_name)
-        )
+        frame_filenames = tf.io.gfile.listdir(os.path.join(raw_image_dir, split, video_name))
 
         # If larger than 3 frames, we only save one example per video, so only
         # getting the first n frames of that video.
@@ -154,32 +131,20 @@ def main(unused_argv):
             frame_filenames = frame_filenames[:num_frames]
 
         all_images = collections.deque(maxlen=num_frames if num_frames > 0 else None)
-        all_panoptic_maps = collections.deque(
-            maxlen=num_frames if num_frames > 0 else None
-        )
+        all_panoptic_maps = collections.deque(maxlen=num_frames if num_frames > 0 else None)
         for j, fn in enumerate(frame_filenames):
             logging.info("%s, %s", video_name, fn)
 
             # load the image.
-            image = np.asarray(
-                Image.open(
-                    tf.io.gfile.GFile(
-                        os.path.join(raw_image_dir, split, video_name, fn), "rb"
-                    )
-                )
-            )
+            image = np.asarray(Image.open(tf.io.gfile.GFile(os.path.join(raw_image_dir, split, video_name, fn), "rb")))
             all_images.append(image)
 
             # load and decode the panoptic map.
-            panoptic_map = _decode_panoptic_map(
-                os.path.join(raw_ann_dir, split, video_name, fn)
-            )
+            panoptic_map = _decode_panoptic_map(os.path.join(raw_ann_dir, split, video_name, fn))
             all_panoptic_maps.append(panoptic_map)
 
             if j >= num_frames - 1 and num_frames > 0:
-                serialized_example = generate_tf_sequence_example(
-                    all_images, all_panoptic_maps, fn, video_name
-                )
+                serialized_example = generate_tf_sequence_example(all_images, all_panoptic_maps, fn, video_name)
                 writers[k % shards].write(serialized_example)
                 k += 1
 

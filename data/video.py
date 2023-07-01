@@ -169,17 +169,11 @@ class DavisDataset(dataset_lib.TFRecordDataset):
 
         def _get_video_id(video_name):
             video_name = video_name.decode("utf-8")
-            video_id = (
-                self._video_name_to_id_map[video_name]
-                if video_name in self._video_name_to_id_map
-                else -1
-            )
+            video_id = self._video_name_to_id_map[video_name] if video_name in self._video_name_to_id_map else -1
             return np.asarray(video_id, dtype=np.int32)
 
         # Decode image and segmentation masks.
-        frames = tf.map_fn(
-            lambda x: tf.io.decode_png(x, channels=3), example["video/frames"], tf.uint8
-        )
+        frames = tf.map_fn(lambda x: tf.io.decode_png(x, channels=3), example["video/frames"], tf.uint8)
         frames.set_shape([None, None, None, 3])
         segs = tf.map_fn(
             lambda x: tf.io.decode_png(x, channels=1),
@@ -192,9 +186,7 @@ class DavisDataset(dataset_lib.TFRecordDataset):
             "video/frames": tf.image.convert_image_dtype(frames, tf.float32),
             "video/num_frames": tf.cast(example["video/num_frames"], tf.int32),
         }
-        video_id = tf.numpy_function(
-            _get_video_id, (example["video/name"],), (tf.int32,)
-        )
+        video_id = tf.numpy_function(_get_video_id, (example["video/name"],), (tf.int32,))
         video_id = tf.reshape(video_id, [])
         new_example["video/id"] = video_id
 
@@ -226,9 +218,7 @@ class KittiStepDataset(dataset_lib.TFRecordDataset):
         }
         sequence_features = {
             "image/encoded_list": tf.io.FixedLenSequenceFeature([], tf.string),
-            "image/segmentation/class/encoded_list": tf.io.FixedLenSequenceFeature(
-                [], tf.string
-            ),
+            "image/segmentation/class/encoded_list": tf.io.FixedLenSequenceFeature([], tf.string),
         }
         return (context_features, sequence_features)
 
@@ -260,9 +250,7 @@ class KittiStepDataset(dataset_lib.TFRecordDataset):
             tf.uint8,
         )
         decoded_frames.set_shape([None, None, None, 3])
-        video_id = tf.numpy_function(
-            _get_video_id, (example["video/sequence_id"],), (tf.int32,)
-        )
+        video_id = tf.numpy_function(_get_video_id, (example["video/sequence_id"],), (tf.int32,))
         video_id = tf.reshape(video_id, [])
         new_example = {
             "video/frames": tf.image.convert_image_dtype(decoded_frames, tf.float32),
@@ -270,23 +258,17 @@ class KittiStepDataset(dataset_lib.TFRecordDataset):
             "video/id": video_id,
         }
 
-        decoded_segs = tf.map_fn(
-            decode_label, example["image/segmentation/class/encoded_list"], tf.int32
-        )
+        decoded_segs = tf.map_fn(decode_label, example["image/segmentation/class/encoded_list"], tf.int32)
         decoded_segs.set_shape([None, None, None, 1])
 
-        semantic_label = tf.cast(
-            decoded_segs // self.config.panoptic_label_divisor, tf.int32
-        )
+        semantic_label = tf.cast(decoded_segs // self.config.panoptic_label_divisor, tf.int32)
         # Replace void label with 0, and increment all class labels by 1.
         semantic_label = tf.where(
             semantic_label == self.config.ignore_label,
             tf.zeros_like(semantic_label),
             semantic_label + 1,
         )
-        instance_label = tf.cast(
-            decoded_segs % self.config.panoptic_label_divisor, tf.int32
-        )
+        instance_label = tf.cast(decoded_segs % self.config.panoptic_label_divisor, tf.int32)
         if training:
             instance_label = process_instance_id_map(
                 instance_label,
@@ -344,19 +326,12 @@ class TFDSVideoDataset(dataset_lib.TFDSDataset):
 
     @property
     def num_train_examples(self):
-        return sum(
-            [self.builder.info.splits[s].num_examples for s in self.config.train_split]
-        )
+        return sum([self.builder.info.splits[s].num_examples for s in self.config.train_split])
 
     @property
     def num_eval_examples(self):
         return (
-            sum(
-                [
-                    self.builder.info.splits[s].num_examples
-                    for s in self.config.eval_split
-                ]
-            )
+            sum([self.builder.info.splits[s].num_examples for s in self.config.eval_split])
             if not self.task_config.get("unbatch", False)
             else None
         )

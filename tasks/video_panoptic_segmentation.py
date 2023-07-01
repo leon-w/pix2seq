@@ -33,9 +33,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
         super().__init__(config)
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(
-                config
-            )
+            self._metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
 
     def preprocess_single(self, dataset, batch_duplicates, training):
         """Task-specific preprocessing of individual example in the dataset.
@@ -69,11 +67,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                 assert len(t_cfg.proceeding_frames.split(",")) == num_frames - 1
                 proceeding_masks = []
                 for i in range(num_frames - 1):
-                    keep = (
-                        tf.random.uniform([]) > t_cfg.frames_dropout
-                        if training
-                        else True
-                    )
+                    keep = tf.random.uniform([]) > t_cfg.frames_dropout if training else True
                     proceeding_masks.append(
                         tf.cond(
                             keep,
@@ -122,9 +116,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                 t_cfg.max_instances_per_image,
                 m_cfg.mask_weight_p,
             )
-            label_map = task_utils.integer_map_to_bits(
-                batched_examples["label_map"], t_cfg.n_bits_label, m_cfg.b_scale
-            )
+            label_map = task_utils.integer_map_to_bits(batched_examples["label_map"], t_cfg.n_bits_label, m_cfg.b_scale)
             cond_map = task_utils.integer_map_to_bits(
                 batched_examples["cond_map"],
                 t_cfg.n_bits_label * num_cond_frames,
@@ -156,9 +148,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                 t_cfg.max_instances_per_image,
             )
             if m_cfg.image_size != m_cfg.msize:
-                masks_pred = tf.image.resize(
-                    masks_pred, m_cfg.image_size, method="nearest"
-                )
+                masks_pred = tf.image.resize(masks_pred, m_cfg.image_size, method="nearest")
         else:  # eval the entire video
             masks_pred = self.infer_video(model, images)
         return examples, masks_pred
@@ -187,9 +177,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                     cond_map_i.append(
                         tf.cond(
                             step + offset >= 0,
-                            lambda: cond_maps[
-                                step + offset
-                            ],  # pylint: disable=cell-var-from-loop
+                            lambda: cond_maps[step + offset],  # pylint: disable=cell-var-from-loop
                             lambda: tf.zeros_like(cond_maps[0]),
                         )
                     )
@@ -206,13 +194,9 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
 
             # Inference on the current frame.
             if step == 0:
-                masks_pred_o = model.infer(  # [bsz, h, w, 16]
-                    (frames_i, cond_map_i), m_cfg.iterations, m_cfg.sampler
-                )
+                masks_pred_o = model.infer((frames_i, cond_map_i), m_cfg.iterations, m_cfg.sampler)  # [bsz, h, w, 16]
             else:
-                masks_pred_o = model.infer(  # [bsz, h, w, 16]
-                    (frames_i, cond_map_i), m_cfg.iterations_2, m_cfg.sampler
-                )
+                masks_pred_o = model.infer((frames_i, cond_map_i), m_cfg.iterations_2, m_cfg.sampler)  # [bsz, h, w, 16]
 
             masks_pred_o = task_utils.bits_to_panoptic_map(
                 masks_pred_o,
@@ -221,16 +205,10 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                 t_cfg.max_instances_per_image,
             )
 
-            if m_cfg.image_size[0] != m_cfg.msize[0] or (
-                m_cfg.image_size[1] != m_cfg.msize[1]
-            ):
-                masks_pred_o = tf.image.resize(
-                    masks_pred_o, m_cfg.msize, method="nearest"
-                )
+            if m_cfg.image_size[0] != m_cfg.msize[0] or (m_cfg.image_size[1] != m_cfg.msize[1]):
+                masks_pred_o = tf.image.resize(masks_pred_o, m_cfg.msize, method="nearest")
 
-            masks_pred = tf.tensor_scatter_nd_update(
-                masks_pred, [[step]], [masks_pred_o]
-            )
+            masks_pred = tf.tensor_scatter_nd_update(masks_pred, [[step]], [masks_pred_o])
             return masks_pred, step + 1
 
         def cond(masks_pred, step):
@@ -239,9 +217,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
 
         masks_pred_var = tf.zeros([num_frames, bsz, mh, mw, 2], tf.int32)
         step = 0
-        masks_pred_var, step = tf.while_loop(
-            cond=cond, body=loop_body, loop_vars=[masks_pred_var, step]
-        )
+        masks_pred_var, step = tf.while_loop(cond=cond, body=loop_body, loop_vars=[masks_pred_var, step])
         return tf.transpose(masks_pred_var, [1, 0, 2, 3, 4])
 
     def postprocess_tpu(self, batched_examples, predictions, training=False):
@@ -260,11 +236,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
           results for passing to `postprocess_cpu` which runs in CPU mode.
         """
         examples = batched_examples
-        cond_map = (
-            examples["cond_map"]
-            if "cond_map" in examples
-            else (tf.zeros_like(examples["num_frames"]))
-        )
+        cond_map = examples["cond_map"] if "cond_map" in examples else (tf.zeros_like(examples["num_frames"]))
 
         return (
             examples["image"],
@@ -325,16 +297,10 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
         if t_cfg.eval_single_frames:
             if eval_step <= 15 or ret_results:
                 # Image summary.
-                preds_s = utils.colorize(
-                    predictions[..., 0], vmin=0, vmax=d_cfg.num_classes
-                )
-                preds_i = utils.colorize(
-                    predictions[..., 1], vmin=0, vmax=t_cfg.max_instances_per_image
-                )
+                preds_s = utils.colorize(predictions[..., 0], vmin=0, vmax=d_cfg.num_classes)
+                preds_i = utils.colorize(predictions[..., 1], vmin=0, vmax=t_cfg.max_instances_per_image)
                 gts_s = utils.colorize(gts[..., 0], vmin=0, vmax=d_cfg.num_classes)
-                gts_i = utils.colorize(
-                    gts[..., 1], vmin=0, vmax=t_cfg.max_instances_per_image
-                )
+                gts_i = utils.colorize(gts[..., 1], vmin=0, vmax=t_cfg.max_instances_per_image)
 
                 new_image = tf.concat([images, gts_s, preds_s, gts_i, preds_i], 1)
                 tf.summary.image(summary_tag, new_image, step=train_step)
@@ -345,22 +311,12 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
             logging.info("video_id: %s", video_id.numpy())
             for frame_id in frame_ids:
                 im = images[:, frame_id]
-                if m_cfg.image_size[0] != m_cfg.msize[0] or (
-                    m_cfg.image_size[1] != m_cfg.msize[1]
-                ):
+                if m_cfg.image_size[0] != m_cfg.msize[0] or (m_cfg.image_size[1] != m_cfg.msize[1]):
                     # Resize for visualization.
-                    im = tf.image.resize(
-                        im, m_cfg.msize, method=tf.image.ResizeMethod.BICUBIC
-                    )
-                gt_s = utils.colorize(
-                    gts[:, frame_id, ..., 0], vmin=0, vmax=d_cfg.num_classes
-                )
-                pr_s = utils.colorize(
-                    predictions[:, frame_id, ..., 0], vmin=0, vmax=d_cfg.num_classes
-                )
-                gt_i = utils.colorize(
-                    gts[:, frame_id, ..., 1], vmin=0, vmax=t_cfg.max_instances_per_image
-                )
+                    im = tf.image.resize(im, m_cfg.msize, method=tf.image.ResizeMethod.BICUBIC)
+                gt_s = utils.colorize(gts[:, frame_id, ..., 0], vmin=0, vmax=d_cfg.num_classes)
+                pr_s = utils.colorize(predictions[:, frame_id, ..., 0], vmin=0, vmax=d_cfg.num_classes)
+                gt_i = utils.colorize(gts[:, frame_id, ..., 1], vmin=0, vmax=t_cfg.max_instances_per_image)
                 pr_i = utils.colorize(
                     predictions[:, frame_id, ..., 1],
                     vmin=0,
@@ -403,9 +359,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
         # Resize predicted masks to imsize, so that they can be converted to the
         # original image size later.
         predictions = tf.reshape(predictions, [bsz * max_frames, mh, mw, 2])
-        predictions = tf.image.resize(
-            predictions, [imh, imw], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-        )
+        predictions = tf.image.resize(predictions, [imh, imw], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
         predictions = tf.reshape(predictions, [bsz, max_frames, imh, imw, 2])
         predictions = tf.cast(predictions, tf.uint8)
         for i in range(bsz):
@@ -426,9 +380,7 @@ class TaskVideoPanopticSegmentation(task_lib.Task):
                 video_name = f"{video_id[i]:04d}"
             else:
                 video_name = str(video_id[i])
-            self._metrics.record_prediction(
-                pred, video_name, range(num_frames[i]), step
-            )
+            self._metrics.record_prediction(pred, video_name, range(num_frames[i]), step)
 
     def compute_scalar_metrics(self, step):
         """Returns a dict containing scalar metrics to log."""

@@ -70,9 +70,7 @@ def get_object_detection_train_transforms(
     ]
 
 
-def get_object_detection_eval_transforms(
-    image_size: Tuple[int, int], max_instances_per_image: int
-):
+def get_object_detection_eval_transforms(image_size: Tuple[int, int], max_instances_per_image: int):
     return [
         D(name="record_original_image_size"),
         D(
@@ -155,9 +153,7 @@ def get_instance_segmentation_train_transforms(
     ]
 
 
-def get_instance_segmentation_eval_transforms(
-    image_size: Tuple[int, int], max_instances_per_image: int
-):
+def get_instance_segmentation_eval_transforms(image_size: Tuple[int, int], max_instances_per_image: int):
     instance_feature_names = ["bbox", "label", "area", "is_crowd", "polygon", "scores"]
     object_coordinate_keys = ["bbox", "polygon"]
     return [
@@ -260,9 +256,7 @@ def get_keypoint_detection_train_transforms(
     ]
 
 
-def get_keypoint_detection_eval_transforms(
-    image_size: Tuple[int, int], max_instances_per_image: int
-):
+def get_keypoint_detection_eval_transforms(image_size: Tuple[int, int], max_instances_per_image: int):
     instance_feature_names = [
         "bbox",
         "label",

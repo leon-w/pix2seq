@@ -58,9 +58,7 @@ class FVDMetricEvaluator(TFGANMetricEvaluator):
         logging.info("loading FID stats for datasets %s", self.dataset_name)
         if self.dataset_name in {"ucf101", "kinetics600"} and False:
             assert self.image_size in [64, 128]
-            filename = "{}/{}_{}_stats_real.npz".format(
-                stat_path, self.dataset_name, self.image_size
-            )
+            filename = "{}/{}_{}_stats_real.npz".format(stat_path, self.dataset_name, self.image_size)
             with tf.io.gfile.GFile(filename, "rb") as fin:
                 stats_real = np.load(fin)
                 logging.info(
@@ -120,9 +118,7 @@ class FVDMetricEvaluator(TFGANMetricEvaluator):
         metrics.update(
             {
                 "fvd_pool_batch": get_fid_score(gen_mean, gen_cov, ref_mean, ref_cov),
-                "fvd_batch": get_fid_score(
-                    gen_logits_mean, gen_logits_cov, ref_logits_mean, ref_logits_cov
-                ),
+                "fvd_batch": get_fid_score(gen_logits_mean, gen_logits_cov, ref_logits_mean, ref_logits_cov),
             }
         )
         if self.dataset_stats_mean is not None:

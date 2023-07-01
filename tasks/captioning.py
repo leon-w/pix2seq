@@ -34,9 +34,7 @@ class TaskCaptioning(task_lib.Task):
         super().__init__(config)
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._coco_metrics = metric_registry.MetricRegistry.lookup(
-                metric_config.name
-            )(config)
+            self._coco_metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
         else:
             self._coco_metrics = None
         self._tokenizer = tokenizer_lib.SPTokenizer(
@@ -59,8 +57,7 @@ class TaskCaptioning(task_lib.Task):
         """
         if batch_duplicates > 1:
             raise NotImplementedError(
-                "Not supporting batch_duplicate=%d > 1 for "
-                "caption as of now." % batch_duplicates
+                "Not supporting batch_duplicate=%d > 1 for " "caption as of now." % batch_duplicates
             )
 
         def _preprocess_single_example(example):
@@ -69,13 +66,8 @@ class TaskCaptioning(task_lib.Task):
             if training:
                 captions = []
                 for i in range(config.captions_per_image):
-                    caption = (
-                        self._tokenizer.string_to_ids(example["captions"][i])
-                        + mconfig.text_vocab_shift
-                    )
-                    captions.append(
-                        utils.pad_to_max_len(caption, config.max_seq_len, -1)
-                    )
+                    caption = self._tokenizer.string_to_ids(example["captions"][i]) + mconfig.text_vocab_shift
+                    captions.append(utils.pad_to_max_len(caption, config.max_seq_len, -1))
                 captions = tf.stack(captions)
 
                 for t in self.train_transforms:
@@ -86,17 +78,12 @@ class TaskCaptioning(task_lib.Task):
                     example = t.process_example(example)
 
                 # Use the first caption. This  won't be used in eval.
-                caption = (
-                    self._tokenizer.string_to_ids(example["captions"][0])
-                    + mconfig.text_vocab_shift
-                )
+                caption = self._tokenizer.string_to_ids(example["captions"][0]) + mconfig.text_vocab_shift
                 caption = utils.pad_to_max_len(caption, config.max_seq_len, -1)
                 example["captions"] = caption
             return example
 
-        dataset = dataset.map(
-            _preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(_preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset
 
     def preprocess_batched(self, batched_examples, training):
@@ -119,9 +106,7 @@ class TaskCaptioning(task_lib.Task):
 
         if training:
             response_seq = batched_examples["captions"]  # (bsz, num_cap, max_seq_len)
-            prompt_seq = task_utils.build_prompt_seq_from_task_id(
-                self.task_vocab_id, response_seq
-            )  # (bsz, 1)
+            prompt_seq = task_utils.build_prompt_seq_from_task_id(self.task_vocab_id, response_seq)  # (bsz, 1)
             label_seq = tf.concat([prompt_seq, response_seq], -1)
             token_weights = tf.where(
                 response_seq == 1 + mconfig.text_vocab_shift,  # eos token
@@ -150,9 +135,7 @@ class TaskCaptioning(task_lib.Task):
         config = self.config.task
         image, _, examples = preprocessed_outputs  # response_seq unused by default
         bsz = tf.shape(image)[0]
-        prompt_seq = task_utils.build_prompt_seq_from_task_id(
-            self.task_vocab_id, prompt_shape=(bsz, 1)
-        )
+        prompt_seq = task_utils.build_prompt_seq_from_task_id(self.task_vocab_id, prompt_shape=(bsz, 1))
         pred_seq, logits, _ = model.infer(
             image,
             prompt_seq,
@@ -227,9 +210,7 @@ class TaskCaptioning(task_lib.Task):
             batch_size = tf.shape(image_ids)[0]
             pred_seq = tf.where(pred_seq == 0, 0, pred_seq - mconfig.text_vocab_shift)
             original_pred_seq = pred_seq.numpy()
-            pred_seq = tf.minimum(
-                tf.maximum(pred_seq, 0), self._tokenizer.vocab_size - 1
-            )
+            pred_seq = tf.minimum(tf.maximum(pred_seq, 0), self._tokenizer.vocab_size - 1)
             pred_seq = tf.cast(pred_seq, tf.int32)
             clipped_pred_seq = pred_seq.numpy()
             output_text = self._tokenizer.ids_to_strings(

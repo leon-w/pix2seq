@@ -55,9 +55,7 @@ def _update_dict_stats(
         if weights is None:
             ids, _, counts = tf.unique_with_counts(id_array)
         else:
-            ids, _, counts = tf.unique_with_counts(
-                tf.boolean_mask(id_array, tf.equal(weight, weights))
-            )
+            ids, _, counts = tf.unique_with_counts(tf.boolean_mask(id_array, tf.equal(weight, weights)))
         for idx, count in zip(ids.numpy(), tf.cast(counts, tf.float32)):
             if idx in stat_dict:
                 stat_dict[idx] += count * weight
@@ -118,9 +116,7 @@ class STQuality(object):
             self._include_indices = np.arange(self._num_classes)
         else:
             self._confusion_matrix_size = num_classes
-            self._include_indices = np.array(
-                [i for i in range(num_classes) if i != self._ignore_label]
-            )
+            self._include_indices = np.array([i for i in range(num_classes) if i != self._ignore_label])
 
         self._iou_confusion_matrix_per_sequence = collections.OrderedDict()
         self._predictions = collections.OrderedDict()
@@ -177,9 +173,7 @@ class STQuality(object):
                 self._num_classes,
             )
         if sequence_id in self._iou_confusion_matrix_per_sequence:
-            self._iou_confusion_matrix_per_sequence[
-                sequence_id
-            ] += tf.math.confusion_matrix(
+            self._iou_confusion_matrix_per_sequence[sequence_id] += tf.math.confusion_matrix(
                 tf.reshape(semantic_label, [-1]),
                 tf.reshape(semantic_prediction, [-1]),
                 self._confusion_matrix_size,
@@ -188,9 +182,7 @@ class STQuality(object):
             )
             self._sequence_length[sequence_id] += 1
         else:
-            self._iou_confusion_matrix_per_sequence[
-                sequence_id
-            ] = tf.math.confusion_matrix(
+            self._iou_confusion_matrix_per_sequence[sequence_id] = tf.math.confusion_matrix(
                 tf.reshape(semantic_label, [-1]),
                 tf.reshape(semantic_prediction, [-1]),
                 self._confusion_matrix_size,
@@ -207,12 +199,8 @@ class STQuality(object):
         label_mask = tf.zeros_like(semantic_label, dtype=tf.bool)
         prediction_mask = tf.zeros_like(semantic_prediction, dtype=tf.bool)
         for things_class_id in self._things_list:
-            label_mask = tf.logical_or(
-                label_mask, tf.equal(semantic_label, things_class_id)
-            )
-            prediction_mask = tf.logical_or(
-                prediction_mask, tf.equal(semantic_prediction, things_class_id)
-            )
+            label_mask = tf.logical_or(label_mask, tf.equal(semantic_label, things_class_id))
+            prediction_mask = tf.logical_or(prediction_mask, tf.equal(semantic_prediction, things_class_id))
 
         # Select the `crowd` region of the current class. This region is encoded
         # instance id `0`.
@@ -241,10 +229,7 @@ class STQuality(object):
         )
 
         non_crowd_intersection = tf.logical_and(label_mask, prediction_mask)
-        intersection_ids = (
-            y_true[non_crowd_intersection] * self._offset
-            + y_pred[non_crowd_intersection]
-        )
+        intersection_ids = y_true[non_crowd_intersection] * self._offset + y_pred[non_crowd_intersection]
         _update_dict_stats(
             seq_intersects,
             intersection_ids,
@@ -276,9 +261,7 @@ class STQuality(object):
                 self._ground_truth[sequence] = metric._ground_truth[sequence]
                 self._predictions[sequence] = metric._predictions[sequence]
                 self._intersections[sequence] = metric._intersections[sequence]
-                self._iou_confusion_matrix_per_sequence[
-                    sequence
-                ] = metric._iou_confusion_matrix_per_sequence[sequence]
+                self._iou_confusion_matrix_per_sequence[sequence] = metric._iou_confusion_matrix_per_sequence[sequence]
                 self._sequence_length[sequence] = metric._sequence_length[sequence]
         # pylint: enable=protected-access
 
@@ -329,12 +312,8 @@ class STQuality(object):
         # Compute IoU scores.
         # The rows correspond to ground-truth and the columns to predictions.
         # Remove fp from confusion matrix for the void/ignore class.
-        total_confusion = np.zeros(
-            (self._confusion_matrix_size, self._confusion_matrix_size), dtype=np.float64
-        )
-        for index, confusion in enumerate(
-            self._iou_confusion_matrix_per_sequence.values()
-        ):
+        total_confusion = np.zeros((self._confusion_matrix_size, self._confusion_matrix_size), dtype=np.float64)
+        for index, confusion in enumerate(self._iou_confusion_matrix_per_sequence.values()):
             confusion = confusion.numpy()
             removal_matrix = np.zeros_like(confusion)
             removal_matrix[self._include_indices, :] = 1.0
@@ -348,9 +327,7 @@ class STQuality(object):
             unions = intersections + fps + fns
 
             num_classes = np.count_nonzero(unions)
-            ious = intersections.astype(np.double) / np.maximum(unions, 1e-15).astype(
-                np.double
-            )
+            ious = intersections.astype(np.double) / np.maximum(unions, 1e-15).astype(np.double)
             iou_per_seq[index] = np.sum(ious) / num_classes
 
         # `intersections` corresponds to true positives.
@@ -360,9 +337,7 @@ class STQuality(object):
         unions = intersections + fps + fns
 
         num_classes = np.count_nonzero(unions)
-        ious = intersections.astype(np.double) / np.maximum(unions, 1e-15).astype(
-            np.double
-        )
+        ious = intersections.astype(np.double) / np.maximum(unions, 1e-15).astype(np.double)
         iou_mean = np.sum(ious) / num_classes
 
         st_quality = np.sqrt(aq_mean * iou_mean)

@@ -22,9 +22,7 @@ import tensorflow_addons.layers as tfa_layers
 
 
 def get_variable_initializer(scale=1e-10):
-    return tf.keras.initializers.VarianceScaling(
-        scale=scale, mode="fan_avg", distribution="uniform"
-    )
+    return tf.keras.initializers.VarianceScaling(scale=scale, mode="fan_avg", distribution="uniform")
 
 
 def get_norm(norm_type, **kwargs):
@@ -37,9 +35,7 @@ def get_norm(norm_type, **kwargs):
             name=kwargs.get("name", "group_nrom"),
         )
     elif norm_type == "layer_norm":
-        return tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name=kwargs.get("name", "layer_norm")
-        )
+        return tf.keras.layers.LayerNormalization(epsilon=1e-6, name=kwargs.get("name", "layer_norm"))
     elif norm_type == "none":
         return tf.identity
     else:
@@ -73,9 +69,7 @@ class UpsampleBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
             name="conv1",
         )
 
-        self.gn1 = get_norm(
-            "group_norm", num_groups=min(dim_hr // 4, 32), name="group_norm1"
-        )
+        self.gn1 = get_norm("group_norm", num_groups=min(dim_hr // 4, 32), name="group_norm1")
 
         self.conv2 = tf.keras.layers.Conv2D(
             filters=self.dim,
@@ -87,9 +81,7 @@ class UpsampleBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
             name="conv2",
         )
 
-        self.gn2 = get_norm(
-            "group_norm", num_groups=min(self.dim // 4, 32), name="group_norm2"
-        )
+        self.gn2 = get_norm("group_norm", num_groups=min(self.dim // 4, 32), name="group_norm2")
 
     def call(self, x_hr_n_lr, training):
         x_hr = 0.0 if x_hr_n_lr[0] is None else x_hr_n_lr[0]
@@ -128,9 +120,7 @@ class FeaturePyramidMerge(tf.keras.layers.Layer):  # pylint: disable=missing-doc
                 upsample = self.upsample
                 if input_shapes[i][1:3] == input_shapes[i - 1][1:3]:
                     upsample = "none"
-                if (input_shapes[i - 1][1] > self.out_size[0]) or (
-                    input_shapes[i - 1][2] > self.out_size[1]
-                ):
+                if (input_shapes[i - 1][1] > self.out_size[0]) or (input_shapes[i - 1][2] > self.out_size[1]):
                     # If high-res map is larger than out_size, just use the low-res one.
                     self.upsample_blocks[str(i)] = lambda x, _: x[1]
                 else:
@@ -188,9 +178,7 @@ class FeaturePyramidMerge(tf.keras.layers.Layer):  # pylint: disable=missing-doc
         return x
 
 
-class FeaturePyramidMergeNaive(
-    tf.keras.layers.Layer
-):  # pylint: disable=missing-docstring
+class FeaturePyramidMergeNaive(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     """Upsample every feature maps to out_size, followed by a single conv."""
 
     def __init__(self, out_dim, out_size, upsample="nearest", **kwargs):
@@ -218,9 +206,7 @@ class FeaturePyramidMergeNaive(
             name="conv",
         )
 
-        self.gn = get_norm(
-            "group_norm", num_groups=min(self.out_dim // 4, 32), name="group_norm"
-        )
+        self.gn = get_norm("group_norm", num_groups=min(self.out_dim // 4, 32), name="group_norm")
 
     def call(self, h_stack, training):
         h_stack_new = []

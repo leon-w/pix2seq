@@ -73,9 +73,7 @@ def load_instance_annotations(annotation_path):
         image_id = ann["image_id"]
         img_to_ann[image_id].append(ann)
 
-    category_id_to_name_map = dict(
-        (element["id"], element["name"]) for element in annotations["categories"]
-    )
+    category_id_to_name_map = dict((element["id"], element["name"]) for element in annotations["categories"])
 
     return category_id_to_name_map, img_to_ann
 
@@ -136,40 +134,20 @@ def obj_annotations_to_feature_dict(obj_annotations, id_to_name_map):
 
     data = coco_annotations_to_lists(obj_annotations, id_to_name_map)
     feature_dict = {
-        "image/object/bbox/xmin": tfrecord_lib.convert_to_feature(
-            data["xmin"], value_type="float_list"
-        ),
-        "image/object/bbox/xmax": tfrecord_lib.convert_to_feature(
-            data["xmax"], value_type="float_list"
-        ),
-        "image/object/bbox/ymin": tfrecord_lib.convert_to_feature(
-            data["ymin"], value_type="float_list"
-        ),
-        "image/object/bbox/ymax": tfrecord_lib.convert_to_feature(
-            data["ymax"], value_type="float_list"
-        ),
-        "image/object/class/text": tfrecord_lib.convert_to_feature(
-            data["category_names"], value_type="bytes_list"
-        ),
-        "image/object/class/label": tfrecord_lib.convert_to_feature(
-            data["category_id"], value_type="int64_list"
-        ),
-        "image/object/is_crowd": tfrecord_lib.convert_to_feature(
-            data["is_crowd"], value_type="int64_list"
-        ),
-        "image/object/area": tfrecord_lib.convert_to_feature(
-            data["area"], value_type="float_list"
-        ),
-        "image/object/score": tfrecord_lib.convert_to_feature(
-            data["score"], value_type="float_list"
-        ),
+        "image/object/bbox/xmin": tfrecord_lib.convert_to_feature(data["xmin"], value_type="float_list"),
+        "image/object/bbox/xmax": tfrecord_lib.convert_to_feature(data["xmax"], value_type="float_list"),
+        "image/object/bbox/ymin": tfrecord_lib.convert_to_feature(data["ymin"], value_type="float_list"),
+        "image/object/bbox/ymax": tfrecord_lib.convert_to_feature(data["ymax"], value_type="float_list"),
+        "image/object/class/text": tfrecord_lib.convert_to_feature(data["category_names"], value_type="bytes_list"),
+        "image/object/class/label": tfrecord_lib.convert_to_feature(data["category_id"], value_type="int64_list"),
+        "image/object/is_crowd": tfrecord_lib.convert_to_feature(data["is_crowd"], value_type="int64_list"),
+        "image/object/area": tfrecord_lib.convert_to_feature(data["area"], value_type="float_list"),
+        "image/object/score": tfrecord_lib.convert_to_feature(data["score"], value_type="float_list"),
     }
     return feature_dict, len(data["xmin"])
 
 
-def update_tfrecord_file(
-    tfrecord_path, image_to_anns, category_id_to_name_map, output_path
-):
+def update_tfrecord_file(tfrecord_path, image_to_anns, category_id_to_name_map, output_path):
     """Merge one tfrecord file with annotations.
 
     Args:
@@ -194,23 +172,17 @@ def update_tfrecord_file(
                 feature_dict[f] = ex.features.feature[f]
 
             # Populate the object detection features from json annotations.
-            det_features, num_bbox = obj_annotations_to_feature_dict(
-                anns, category_id_to_name_map
-            )
+            det_features, num_bbox = obj_annotations_to_feature_dict(anns, category_id_to_name_map)
             feature_dict.update(det_features)
 
             # Pad the segmentation and keypoint features.
             feature_dict.update(
                 {
-                    "image/object/segmentation_v": tfrecord_lib.convert_to_feature(
-                        [], value_type="float_list"
-                    ),
+                    "image/object/segmentation_v": tfrecord_lib.convert_to_feature([], value_type="float_list"),
                     "image/object/segmentation_sep": tfrecord_lib.convert_to_feature(
                         [0] * (num_bbox + 1), value_type="int64_list"
                     ),
-                    "image/object/keypoints_v": tfrecord_lib.convert_to_feature(
-                        [], value_type="float_list"
-                    ),
+                    "image/object/keypoints_v": tfrecord_lib.convert_to_feature([], value_type="float_list"),
                     "image/object/keypoints_sep": tfrecord_lib.convert_to_feature(
                         [0] * (num_bbox + 1), value_type="int64_list"
                     ),
@@ -220,25 +192,19 @@ def update_tfrecord_file(
                 }
             )
 
-            new_ex = tf.train.Example(
-                features=tf.train.Features(feature=feature_dict)
-            ).SerializeToString()
+            new_ex = tf.train.Example(features=tf.train.Features(feature=feature_dict)).SerializeToString()
             writer.write(new_ex)
 
 
 def main(unused_argv):
-    category_id_to_name_map, image_to_anns = load_instance_annotations(
-        FLAGS.annotation_path
-    )
+    category_id_to_name_map, image_to_anns = load_instance_annotations(FLAGS.annotation_path)
 
     tfrecord_lib.check_and_make_dir(FLAGS.output_dir)
 
     tfrecord_paths = tf.io.gfile.glob(FLAGS.tfrecord_path)
     for tfrecord_path in tfrecord_paths:
         output_path = os.path.join(FLAGS.output_dir, os.path.basename(tfrecord_path))
-        update_tfrecord_file(
-            tfrecord_path, image_to_anns, category_id_to_name_map, output_path
-        )
+        update_tfrecord_file(tfrecord_path, image_to_anns, category_id_to_name_map, output_path)
         logging.info("Finished writing file %s", output_path)
 
 

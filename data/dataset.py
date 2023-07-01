@@ -141,17 +141,13 @@ class Dataset(abc.ABC):
                 )
             )
             if process_single_example:
-                dataset = process_single_example(
-                    dataset, config.batch_duplicates, training
-                )
+                dataset = process_single_example(dataset, config.batch_duplicates, training)
 
             # TODO(b/181662974): Revert this and support non-even batch sizes.
             # dataset = dataset.batch(batch_size, drop_remainder=training)
             dataset = dataset.padded_batch(batch_size, drop_remainder=True)
             if config.batch_duplicates > 1 and training:
-                dataset = dataset.map(
-                    self._flatten_dims, num_parallel_calls=tf.data.experimental.AUTOTUNE
-                )
+                dataset = dataset.map(self._flatten_dims, num_parallel_calls=tf.data.experimental.AUTOTUNE)
             dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
             return dataset
 
@@ -194,9 +190,7 @@ class TFDSDataset(Dataset):
     def __init__(self, config: ml_collections.ConfigDict):
         """Constructs the dataset."""
         super().__init__(config)
-        self.builder = tfds.builder(
-            self.config.tfds_name, data_dir=self.config.get("data_dir", None)
-        )
+        self.builder = tfds.builder(self.config.tfds_name, data_dir=self.config.get("data_dir", None))
         self.builder.download_and_prepare()
         self.allowed_tasks = []
 
@@ -207,19 +201,13 @@ class TFDSDataset(Dataset):
         # different parts of the dataset on different workers.
         read_config = tfds.ReadConfig(input_context=input_context)
         if isinstance(split, list):
-            dataset = self.builder.as_dataset(
-                split=split[0], shuffle_files=training, read_config=read_config
-            )
+            dataset = self.builder.as_dataset(split=split[0], shuffle_files=training, read_config=read_config)
             for i in range(1, len(split)):
                 dataset.concatenate(
-                    self.builder.as_dataset(
-                        split=split[i], shuffle_files=training, read_config=read_config
-                    )
+                    self.builder.as_dataset(split=split[i], shuffle_files=training, read_config=read_config)
                 )
         else:
-            dataset = self.builder.as_dataset(
-                split=split, shuffle_files=training, read_config=read_config
-            )
+            dataset = self.builder.as_dataset(split=split, shuffle_files=training, read_config=read_config)
         return dataset
 
     @property
@@ -286,9 +274,7 @@ class TFRecordDataset(Dataset):
             example = tf.io.parse_single_example(example, feature_map)
         else:
             context_features, sequence_features = feature_map
-            example, sequence = tf.io.parse_single_sequence_example(
-                example, context_features, sequence_features
-            )
+            example, sequence = tf.io.parse_single_sequence_example(example, context_features, sequence_features)
             example.update(sequence)
 
         for k in example:
@@ -305,8 +291,4 @@ class TFRecordDataset(Dataset):
 
     @property
     def num_eval_examples(self):
-        return (
-            self.config.eval_num_examples
-            if not self.task_config.get("unbatch", False)
-            else None
-        )
+        return self.config.eval_num_examples if not self.task_config.get("unbatch", False) else None

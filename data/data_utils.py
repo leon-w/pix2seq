@@ -45,9 +45,7 @@ def random_brightness(image, max_delta, impl="simclrv2"):
     return image
 
 
-def color_jitter_rand(
-    image, brightness=0, contrast=0, saturation=0, hue=0, impl="simclrv2"
-):
+def color_jitter_rand(image, brightness=0, contrast=0, saturation=0, hue=0, impl="simclrv2"):
     """Distorts the color of the image (jittering order is random).
 
     Args:
@@ -77,17 +75,13 @@ def color_jitter_rand(
                 if contrast == 0:
                     return x
                 else:
-                    return tf.image.random_contrast(
-                        x, lower=1 - contrast, upper=1 + contrast
-                    )
+                    return tf.image.random_contrast(x, lower=1 - contrast, upper=1 + contrast)
 
             def saturation_foo():
                 if saturation == 0:
                     return x
                 else:
-                    return tf.image.random_saturation(
-                        x, lower=1 - saturation, upper=1 + saturation
-                    )
+                    return tf.image.random_saturation(x, lower=1 - saturation, upper=1 + saturation)
 
             def hue_foo():
                 if hue == 0:
@@ -304,9 +298,7 @@ def jitter_bbox(bbox, min_range=0.0, max_range=0.05, truncation=True):
     w = bbox[:, 3] - bbox[:, 1]
     noise = tf.stack([h, w, h, w], -1)
     if min_range == 0:
-        noise_rate = tf.random.truncated_normal(
-            [n, 4], mean=0, stddev=max_range / 2.0, dtype=bbox.dtype
-        )
+        noise_rate = tf.random.truncated_normal([n, 4], mean=0, stddev=max_range / 2.0, dtype=bbox.dtype)
     else:
         noise_rate1 = tf.random.uniform([n, 4], min_range, max_range)
         noise_rate2 = tf.random.uniform([n, 4], -max_range, -min_range)
@@ -395,9 +387,7 @@ def augment_bbox(bbox, bbox_label, max_jitter, n_noise_bbox, mix_rate=0.0):
 
     # Create dup bbox.
     bbox_tiled = tf.random.shuffle(bbox_tiled)
-    dup_bbox = jitter_bbox(
-        bbox_tiled[:dup_bbox_size], min_range=0, max_range=0.1, truncation=True
-    )
+    dup_bbox = jitter_bbox(bbox_tiled[:dup_bbox_size], min_range=0, max_range=0.1, truncation=True)
     dup_bbox_label = tf.zeros([dup_bbox_size], dtype=bbox_label.dtype) + (
         vocab.FAKE_CLASS_TOKEN - vocab.BASE_VOCAB_SHIFT
     )
@@ -437,9 +427,7 @@ def inject_noise_bbox(labels, max_instances_per_image):
     num_instances = tf.shape(labels["bbox"])[0]
     if num_instances < max_instances_per_image:
         n_noise_bbox = max_instances_per_image - num_instances
-        labels["bbox"], labels["label"] = augment_bbox(
-            labels["bbox"], labels["label"], 0.0, n_noise_bbox
-        )
+        labels["bbox"], labels["label"] = augment_bbox(labels["bbox"], labels["label"], 0.0, n_noise_bbox)
     return labels
 
 
@@ -455,9 +443,7 @@ def reorder_object_instances(features, labels, order):
     if order == "random":
         idx = tf.random.shuffle(tf.range(tf.shape(bbox)[0]))
     elif order == "area":
-        areas = tf.cast(
-            tf.reduce_prod(bbox[:, 1, :] - bbox[:, 0, :], axis=1), tf.int64
-        )  # approximated size.
+        areas = tf.cast(tf.reduce_prod(bbox[:, 1, :] - bbox[:, 0, :], axis=1), tf.int64)  # approximated size.
         idx = tf.argsort(areas, direction="DESCENDING")
     elif order == "dist2ori":
         y, x = bbox[:, 0], bbox[:, 1]  # using top-left corner.
@@ -495,9 +481,7 @@ def random_resize(
     if tf.random.uniform([]) < max_out_prob:
         size_longer_side = max_image_size
     else:
-        size_longer_side = tf.random.uniform(
-            [], min_image_size, max_image_size + 1, dtype=tf.int32
-        )
+        size_longer_side = tf.random.uniform([], min_image_size, max_image_size + 1, dtype=tf.int32)
 
     # Get image size from shape (h, w, c) or (time, h, w, c).
     h, w = tf.unstack(tf.shape(image)[-3:-1])
@@ -538,17 +522,13 @@ def scale_jitter(
     output_size = tf.constant([target_height, target_width], tf.float32)
     random_scale = tf.random.uniform([], min_scale, max_scale)
     random_scale_size = tf.multiply(output_size, random_scale)
-    scale = tf.minimum(
-        random_scale_size[0] / input_size[0], random_scale_size[1] / input_size[1]
-    )
+    scale = tf.minimum(random_scale_size[0] / input_size[0], random_scale_size[1] / input_size[1])
     scaled_size = tf.cast(tf.multiply(input_size, scale), tf.int32)
     scaled_image = tf.image.resize(image, tf.cast(scaled_size, tf.int32), method=interp)
     return scaled_image
 
 
-def fixed_size_crop(
-    features, labels, target_height, target_width, object_coordinate_keys
-):
+def fixed_size_crop(features, labels, target_height, target_width, object_coordinate_keys):
     """Crops a random region of target size from the image."""
     input_size = tf.shape(features["image"])[:2]
     output_size = tf.stack([target_height, target_width])
@@ -618,15 +598,11 @@ def handle_out_of_frame_points(points, key):
     if key != "keypoints":
         return tf.math.minimum(tf.math.maximum(points, 0), 1)
     else:
-        overflow = tf.reduce_any(
-            tf.logical_or(points >= 1.0, points <= 0.0), axis=-1, keepdims=True
-        )
+        overflow = tf.reduce_any(tf.logical_or(points >= 1.0, points <= 0.0), axis=-1, keepdims=True)
         return tf.where(overflow, tf.fill(points.shape, vocab.INVISIBLE_FLOAT), points)
 
 
-def crop_deprecated(
-    features, labels, region, object_coordinate_keys=("bbox", "polygon", "keypoints")
-):
+def crop_deprecated(features, labels, region, object_coordinate_keys=("bbox", "polygon", "keypoints")):
     """Crop image to region and adjust (normalized) bbox."""
     image = features["image"]
     h_offset, w_offset, h, w = region
@@ -681,9 +657,7 @@ def crop(
     else:
         # Subsequent crops e.g. when crop_to_bbox is True and we apply random_crop.
         old_h_offset, old_w_offset = tf.unstack(example["crop_offset"])
-        example["crop_offset"] = tf.cast(
-            [old_h_offset + h_offset, old_w_offset + w_offset], tf.int32
-        )
+        example["crop_offset"] = tf.cast([old_h_offset + h_offset, old_w_offset + w_offset], tf.int32)
 
     # Crop object coordinates.
     if object_coordinate_keys:
@@ -788,15 +762,11 @@ def preprocess_train(
         max_image_size[0],
         max_image_size[1],
     )
-    features, labels = fixed_size_crop(
-        features, labels, max_image_size[0], max_image_size[1], object_coordinate_keys
-    )
+    features, labels = fixed_size_crop(features, labels, max_image_size[0], max_image_size[1], object_coordinate_keys)
     if random_flip:
         features, labels = random_horizontal_flip(features, labels)
     if color_jitter_strength > 0:
-        features["image"] = random_color_jitter(
-            features["image"], strength=color_jitter_strength, impl="simclrv2"
-        )
+        features["image"] = random_color_jitter(features["image"], strength=color_jitter_strength, impl="simclrv2")
         features["image"] = tf.clip_by_value(features["image"], 0.0, 1.0)
     if filter_invalid_labels:
         labels = filter_invalid_objects(labels, filter_crowd=True)
@@ -804,9 +774,7 @@ def preprocess_train(
         features, labels = reorder_object_instances(features, labels, object_order)
     if inject_noise_instances:  # for detection.
         labels = inject_noise_bbox(labels, max_instances_per_image)
-    features, labels = pad_image_to_max_size(
-        features, labels, max_image_size, object_coordinate_keys
-    )
+    features, labels = pad_image_to_max_size(features, labels, max_image_size, object_coordinate_keys)
     if max_instances_per_image > 0:
         labels = truncate_or_pad_to_max_instances(labels, max_instances_per_image)
     return features, labels
@@ -827,9 +795,7 @@ def preprocess_eval(
         antialias=True,
         preserve_aspect_ratio=True,
     )
-    features, labels = pad_image_to_max_size(
-        features, labels, max_image_size, object_coordinate_keys
-    )
+    features, labels = pad_image_to_max_size(features, labels, max_image_size, object_coordinate_keys)
     if max_instances_per_image > 0:
         labels = truncate_or_pad_to_max_instances(labels, max_instances_per_image)
     return features, labels
@@ -894,9 +860,7 @@ def maybe_unbatch_instances_and_crop_image_to_bbox(
 
             # Normalized bbox coords.
             ymin, xmin, ymax, xmax = [tf.squeeze(t) for t in tf.split(bbox, 4)]
-            image_h, image_w = [
-                tf.squeeze(t) for t in tf.split(utils.tf_float32(image_shape), 2)
-            ]
+            image_h, image_w = [tf.squeeze(t) for t in tf.split(utils.tf_float32(image_shape), 2)]
 
             def i32(t):
                 return tf.cast(t, tf.int32)
@@ -922,16 +886,8 @@ def maybe_unbatch_instances_and_crop_image_to_bbox(
             xmax = tf.math.minimum(image_shape[1] - 1, xmax + xpad)
 
             region = (ymin, xmin, ymax - ymin + 1, xmax - xmin + 1)
-            points_orig = {
-                key: example[key]
-                for key in per_instance_points_keys
-                if key in instance_feature_keys
-            }
-            object_coordinate_keys = [
-                k
-                for k in ["bbox", "polygon", "keypoints"]
-                if k in instance_feature_keys
-            ]
+            points_orig = {key: example[key] for key in per_instance_points_keys if key in instance_feature_keys}
+            object_coordinate_keys = [k for k in ["bbox", "polygon", "keypoints"] if k in instance_feature_keys]
             example = crop(
                 example,
                 region,
@@ -939,9 +895,7 @@ def maybe_unbatch_instances_and_crop_image_to_bbox(
                 object_coordinate_keys=object_coordinate_keys,
             )
             for key in points_orig:
-                example[key] = utils.preserve_reserved_tokens(
-                    example[key], points_orig[key]
-                )
+                example[key] = utils.preserve_reserved_tokens(example[key], points_orig[key])
             return example
 
         @tf.autograph.experimental.do_not_convert
@@ -957,29 +911,19 @@ def maybe_unbatch_instances_and_crop_image_to_bbox(
         def is_image_valid(example):
             logging.info("Filtering invalid images in the input pipeline")
             image_size = tf.unstack(tf.shape(example["image"]))
-            return tf.logical_and(
-                tf.greater(image_size[0], 0), tf.greater(image_size[1], 0)
-            )
+            return tf.logical_and(tf.greater(image_size[0], 0), tf.greater(image_size[1], 0))
 
         # This ensures that after unbatching the instances with higher
         # scores are ahead. This is needed as we may drop instances in the last
         # batch since eval uses drop_remainder=True.
-        dataset = dataset.map(
-            sort_instances_by_score, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(sort_instances_by_score, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-        dataset = dataset.map(
-            tile_features, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(tile_features, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         dataset = dataset.unbatch()
-        dataset = dataset.map(
-            insert_instance_dim, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(insert_instance_dim, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         if tconfig.crop_to_bbox:
             logging.info("Cropping images to bbox")
-            dataset = dataset.map(
-                crop_to_bbox, num_parallel_calls=tf.data.experimental.AUTOTUNE
-            )
+            dataset = dataset.map(crop_to_bbox, num_parallel_calls=tf.data.experimental.AUTOTUNE)
             dataset = dataset.filter(is_image_valid)
 
     return dataset
@@ -992,15 +936,11 @@ def adjust_for_crop_offset(unnormalized_points, features, max_points_per_object)
     points = tf.reshape(unnormalized_points, [-1, max_points_per_object, 2])
     points += utils.tf_float32(offset)
     unnormalized_points = tf.reshape(points, [-1, max_points_per_object * 2])
-    unnormalized_points = utils.preserve_reserved_tokens(
-        unnormalized_points, points_orig
-    )
+    unnormalized_points = utils.preserve_reserved_tokens(unnormalized_points, points_orig)
     return unnormalized_points
 
 
-def crop_video(
-    frames, height, width, seq_len=None, random=False, seed=None, state=None
-):
+def crop_video(frames, height, width, seq_len=None, random=False, seed=None, state=None):
     """Crops the images in the given sequence of images.
     (Ported from dmvr.processors and allows simulateneous space-time crop)
 
@@ -1042,17 +982,12 @@ def crop_video(
             # [1, input_h - target_h + 1, input_w - target_w + 1, 1].
             limit = shape - size + 1
             offset = (
-                tf.random.uniform(
-                    shape=(4,), dtype=tf.int32, maxval=tf.int32.max, seed=seed
-                )
-                % limit
+                tf.random.uniform(shape=(4,), dtype=tf.int32, maxval=tf.int32.max, seed=seed) % limit
             )  # [0, offset_h, offset_w, 0]
 
             if state is not None:
                 # Update state.
-                offset_proportion = tf.cast(offset, tf.float32) / tf.cast(
-                    shape, tf.float32
-                )
+                offset_proportion = tf.cast(offset, tf.float32) / tf.cast(shape, tf.float32)
                 state["crop_offset_proportion"] = offset_proportion
 
         frames = tf.slice(frames, offset, size)

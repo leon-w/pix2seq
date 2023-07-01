@@ -67,9 +67,7 @@ class TaskVideoGeneration(task_lib.Task):  # pytype: disable=base-class-error
             labels = utils.merge_list_of_dict(labels_list)
             return features, labels
 
-        dataset = dataset.map(
-            _preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(_preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset
 
     def preprocess_batched(self, batched_examples, training):
@@ -127,9 +125,7 @@ class TaskVideoGeneration(task_lib.Task):  # pytype: disable=base-class-error
         labels = tf.argmax(labels["label"], -1)
 
         # FID
-        data_real, data_gen = self._tfgan_evaluator.preprocess_inputs(
-            [videos, samples], is_n1p1=False
-        )
+        data_real, data_gen = self._tfgan_evaluator.preprocess_inputs([videos, samples], is_n1p1=False)
         (logits_real, pool3_real), (
             logits_gen,
             pool3_gen,
@@ -165,9 +161,7 @@ class TaskVideoGeneration(task_lib.Task):  # pytype: disable=base-class-error
         videos, samples, logits_real, pool3_real, logits_gen, pool3_gen = outputs
 
         # FID update.
-        self._tfgan_evaluator.update_stats(
-            logits_real, pool3_real, logits_gen, pool3_gen
-        )
+        self._tfgan_evaluator.update_stats(logits_real, pool3_real, logits_gen, pool3_gen)
 
         # videos summary.
         bsz, t, h, w, c = utils.shape_as_list(samples)
@@ -178,9 +172,7 @@ class TaskVideoGeneration(task_lib.Task):  # pytype: disable=base-class-error
         vis_samples = tf.transpose(vis_samples, [0, 3, 1, 2, 4, 5])
         videos_sum = tf.reshape(vis_samples, [1, a * h, b * t * w, c])
         if eval_step < 2:
-            tf.summary.image(
-                f"{summary_tag}/samples_{eval_step}", videos_sum, step=train_step
-            )
+            tf.summary.image(f"{summary_tag}/samples_{eval_step}", videos_sum, step=train_step)
 
         logging.info("postprocess_cpu done.")
         if ret_results:
@@ -204,9 +196,7 @@ class TaskVideoGeneration(task_lib.Task):  # pytype: disable=base-class-error
         self._tfgan_evaluator.reset()
 
 
-def preprocess_video(
-    video, height, width, seq_len=None, cropping="none", flipping="none", training=False
-):
+def preprocess_video(video, height, width, seq_len=None, cropping="none", flipping="none", training=False):
     """Preprocesses the given video.
 
     Args:
@@ -233,9 +223,7 @@ def preprocess_video(
             antialias=True,
         )
     elif cropping == "random":
-        video = data_utils.crop_video(
-            frames=video, height=height, width=width, seq_len=seq_len, random=True
-        )
+        video = data_utils.crop_video(frames=video, height=height, width=width, seq_len=seq_len, random=True)
     elif cropping == "random_resize":
         video = tf.image.resize(
             video,
@@ -244,9 +232,7 @@ def preprocess_video(
             preserve_aspect_ratio=False,
             antialias=True,
         )
-        video = data_utils.crop_video(
-            frames=video, height=height, width=width, seq_len=seq_len, random=True
-        )
+        video = data_utils.crop_video(frames=video, height=height, width=width, seq_len=seq_len, random=True)
     elif cropping != "none":
         raise ValueError(f"Unknown cropping method {cropping}")
     if training:

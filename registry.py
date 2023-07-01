@@ -40,7 +40,5 @@ class Registry(object):
         """Looks up value for key."""
         if key not in self._registry:
             valid_keys = "\n".join(self._registry.keys())
-            raise ValueError(
-                "%s not registered!\n\n" "Valid keys:%s\n\n" % (key, valid_keys)
-            )
+            raise ValueError("%s not registered!\n\n" "Valid keys:%s\n\n" % (key, valid_keys))
         return self._registry[key]

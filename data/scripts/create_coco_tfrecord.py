@@ -57,9 +57,7 @@ def load_instance_annotations(annotation_path):
         annotations = json.load(f)
 
     image_info = annotations["images"]
-    category_id_to_name_map = dict(
-        (element["id"], element["name"]) for element in annotations["categories"]
-    )
+    category_id_to_name_map = dict((element["id"], element["name"]) for element in annotations["categories"])
 
     img_to_ann = collections.defaultdict(list)
     for ann in annotations["annotations"]:
@@ -127,8 +125,7 @@ def load_panoptic_annotations(annotation_path):
         annotations = json.load(f)
     img_to_ann = {ann["image_id"]: ann for ann in annotations["annotations"]}
     is_category_thing = {
-        category_info["id"]: category_info["isthing"] == 1
-        for category_info in annotations["categories"]
+        category_info["id"]: category_info["isthing"] == 1 for category_info in annotations["categories"]
     }
 
     return img_to_ann, is_category_thing
@@ -191,12 +188,8 @@ def obj_annotations_to_feature_dict(obj_annotations, id_to_name_map):
         "image/object/bbox/xmax": tfrecord_lib.convert_to_feature(data["xmax"]),
         "image/object/bbox/ymin": tfrecord_lib.convert_to_feature(data["ymin"]),
         "image/object/bbox/ymax": tfrecord_lib.convert_to_feature(data["ymax"]),
-        "image/object/class/text": tfrecord_lib.convert_to_feature(
-            data["category_names"]
-        ),
-        "image/object/class/label": tfrecord_lib.convert_to_feature(
-            data["category_id"]
-        ),
+        "image/object/class/text": tfrecord_lib.convert_to_feature(data["category_names"]),
+        "image/object/class/label": tfrecord_lib.convert_to_feature(data["category_id"]),
         "image/object/is_crowd": tfrecord_lib.convert_to_feature(data["is_crowd"]),
         "image/object/area": tfrecord_lib.convert_to_feature(data["area"]),
     }
@@ -252,9 +245,7 @@ def key_annotations_to_feature_dict(key_annotations, obj_annotations):
             num_keypoints.append(0)
     key_sep = [0] + list(np.cumsum(key_lens))
     return {
-        "image/object/keypoints_v": tfrecord_lib.convert_to_feature(
-            keys, value_type="float_list"
-        ),
+        "image/object/keypoints_v": tfrecord_lib.convert_to_feature(keys, value_type="float_list"),
         "image/object/keypoints_sep": tfrecord_lib.convert_to_feature(key_sep),
         "image/object/num_keypoints": tfrecord_lib.convert_to_feature(num_keypoints),
     }
@@ -326,9 +317,7 @@ def create_tf_example(
     # Add annotation features.
     if object_ann:
         # Bbox, area, etc.
-        obj_feature_dict = obj_annotations_to_feature_dict(
-            object_ann, category_id_to_name_map
-        )
+        obj_feature_dict = obj_annotations_to_feature_dict(object_ann, category_id_to_name_map)
         feature_dict.update(obj_feature_dict)
 
         # Polygons.
@@ -351,9 +340,7 @@ def create_tf_example(
 
 
 def main(_):
-    image_info, category_id_to_name_map, img_to_obj_ann = load_instance_annotations(
-        FLAGS.ins_ann_file
-    )
+    image_info, category_id_to_name_map, img_to_obj_ann = load_instance_annotations(FLAGS.ins_ann_file)
     img_to_key_ann = load_keypoint_annotations(FLAGS.key_ann_file)
     img_to_cap_ann = load_caption_annotations(FLAGS.cap_ann_file)
     img_to_pan_ann, is_category_thing = load_panoptic_annotations(FLAGS.pan_ann_file)

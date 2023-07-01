@@ -33,15 +33,11 @@ class TaskPanopticSegmentation(task_lib.Task):
     def __init__(self, config: ml_collections.ConfigDict):
         super().__init__(config)
         self._metrics = {
-            "mean_iou": tf.keras.metrics.MeanIoU(
-                config.dataset.num_classes, "mean_iou"
-            ),
+            "mean_iou": tf.keras.metrics.MeanIoU(config.dataset.num_classes, "mean_iou"),
         }
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._coco_metrics = metric_registry.MetricRegistry.lookup(
-                metric_config.name
-            )(config)
+            self._coco_metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
         else:
             self._coco_metrics = None
 
@@ -85,9 +81,7 @@ class TaskPanopticSegmentation(task_lib.Task):
             t_cfg.max_instances_per_image,
             m_cfg.mask_weight_p,
         )
-        label_map = task_utils.integer_map_to_bits(
-            batched_examples["label_map"], t_cfg.n_bits_label, m_cfg.b_scale
-        )
+        label_map = task_utils.integer_map_to_bits(batched_examples["label_map"], t_cfg.n_bits_label, m_cfg.b_scale)
         if training:
             return batched_examples["image"], label_map, mask_weight
         else:
@@ -130,12 +124,8 @@ class TaskPanopticSegmentation(task_lib.Task):
         """
         images, image_ids = batched_examples["image"], batched_examples["image/id"]
 
-        self._metrics["mean_iou"].update_state(
-            batched_examples["label_map"][..., 0], predictions[..., 0]
-        )
-        label_map_orig = batched_examples.get(
-            "label_map_orig", batched_examples["label_map"]
-        )
+        self._metrics["mean_iou"].update_state(batched_examples["label_map"][..., 0], predictions[..., 0])
+        label_map_orig = batched_examples.get("label_map_orig", batched_examples["label_map"])
         return (
             images,
             image_ids,
@@ -206,11 +196,7 @@ class TaskPanopticSegmentation(task_lib.Task):
             ret_images = {}
             for semantic, identity, tag_ in val_list:
                 new_images = tf.concat([images, semantic, identity], 1)
-                tag = (
-                    summary_tag
-                    + "/"
-                    + task_utils.join_if_not_none([tag_, "mask", eval_step], "_")
-                )
+                tag = summary_tag + "/" + task_utils.join_if_not_none([tag_, "mask", eval_step], "_")
                 new_images = np.copy(tf.image.convert_image_dtype(new_images, tf.uint8))
                 tf.summary.image(tag, new_images, step=train_step)
                 ret_images[tag_] = new_images
@@ -276,9 +262,7 @@ class TaskPanopticSegmentation(task_lib.Task):
 
                 # Convert tfds labels to coco labels.
                 def get_coco_labels(semantic, identity):
-                    coco_labels = tf.gather(
-                        self._coco_metrics.tfds_labels_to_coco, semantic
-                    )
+                    coco_labels = tf.gather(self._coco_metrics.tfds_labels_to_coco, semantic)
                     coco_labels = tf.where(tf.equal(identity, 0), 0, coco_labels)
                     return coco_labels.numpy()
 
@@ -286,13 +270,9 @@ class TaskPanopticSegmentation(task_lib.Task):
             pred_labels.append(pred_semantic)
             pred_instance_ids.append(pred_identity)
 
-        self._coco_metrics.record_prediction(
-            image_ids.numpy(), pred_labels, pred_instance_ids
-        )
+        self._coco_metrics.record_prediction(image_ids.numpy(), pred_labels, pred_instance_ids)
         if not self._coco_metrics.gt_annotations_path:
-            self._coco_metrics.record_groundtruth(
-                image_ids.numpy(), gt_labels, gt_instance_ids
-            )
+            self._coco_metrics.record_groundtruth(image_ids.numpy(), gt_labels, gt_instance_ids)
 
     def compute_scalar_metrics(self, step):
         """Returns a dict containing scalar metrics to log."""
@@ -312,31 +292,21 @@ class TaskPanopticSegmentation(task_lib.Task):
             self._coco_metrics.reset_states()
 
 
-def majority_vote_postprocess(
-    semantic_map, identity_map, min_pixels, max_instances_per_image, max_classes=300
-):
+def majority_vote_postprocess(semantic_map, identity_map, min_pixels, max_instances_per_image, max_classes=300):
     """Returns a semantic map based on majority vote of identity ids."""
     assert semantic_map.shape == identity_map.shape
     h, w = semantic_map.shape
-    indices = tf.concat(
-        [tf.expand_dims(identity_map, -1), tf.expand_dims(semantic_map, -1)], axis=-1
-    )
+    indices = tf.concat([tf.expand_dims(identity_map, -1), tf.expand_dims(semantic_map, -1)], axis=-1)
     indices = tf.reshape(indices, [h * w, 2])
     # Note: Here we use the fact that multiple updates at the same location are
     # summed.
-    counts = tf.scatter_nd(
-        indices, tf.ones([h * w], tf.int32), [max_instances_per_image, max_classes]
-    )
+    counts = tf.scatter_nd(indices, tf.ones([h * w], tf.int32), [max_instances_per_image, max_classes])
     class_assignments = tf.argmax(counts, axis=-1)
 
     indices = tf.reshape(identity_map, [h * w, 1])
-    pix_counts = tf.scatter_nd(
-        indices, tf.ones([h * w], tf.int32), [max_instances_per_image]
-    )
+    pix_counts = tf.scatter_nd(indices, tf.ones([h * w], tf.int32), [max_instances_per_image])
 
-    class_assignments = tf.where(
-        tf.greater_equal(pix_counts, min_pixels), class_assignments, 0
-    )
+    class_assignments = tf.where(tf.greater_equal(pix_counts, min_pixels), class_assignments, 0)
     new_semantic_map = tf.gather(class_assignments, identity_map)
     new_identity_map = tf.where(tf.equal(new_semantic_map, 0), 0, identity_map)
     return new_semantic_map.numpy(), new_identity_map.numpy()

@@ -227,9 +227,7 @@ class CocoKeypointDetectionTFRecordDataset(dataset_lib.TFRecordDataset):
         keypoints = example["image/object/keypoints"].to_tensor(
             default_value=vocab.PADDING_FLOAT, shape=[None, max_points * 3]
         )
-        keypoints = tf.numpy_function(
-            self.set_invisible_points, (keypoints,), tf.float32
-        )
+        keypoints = tf.numpy_function(self.set_invisible_points, (keypoints,), tf.float32)
         keypoints.set_shape([None, max_points * 2])
         keypoints = _xy_to_yx(keypoints)
 

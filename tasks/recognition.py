@@ -28,16 +28,10 @@ class TaskObjectRecognition(task_lib.Task):
 
     def __init__(self, config: ml_collections.ConfigDict):
         super().__init__(config)
-        self._metrics = {
-            "accuracy": tf.keras.metrics.SparseCategoricalAccuracy("accuracy")
-        }
-        if "linear_eval_all_layers" in config.model and (
-            config.model.linear_eval_all_layers
-        ):
+        self._metrics = {"accuracy": tf.keras.metrics.SparseCategoricalAccuracy("accuracy")}
+        if "linear_eval_all_layers" in config.model and (config.model.linear_eval_all_layers):
             for i in range(config.model.num_encoder_layers + 2):
-                self._metrics[
-                    "accuracy_%d" % i
-                ] = tf.keras.metrics.SparseCategoricalAccuracy("accuracy_%d" % i)
+                self._metrics["accuracy_%d" % i] = tf.keras.metrics.SparseCategoricalAccuracy("accuracy_%d" % i)
 
     def preprocess_single(self, dataset, batch_duplicates, training):
         """Task-specific preprocessing of individual example in the dataset.
@@ -71,18 +65,14 @@ class TaskObjectRecognition(task_lib.Task):
                 if config.get("set_pixel_range_minus_one_to_one"):
                     image_ = image_ * 2 - 1
                 if examples["label"].shape.ndims == 0:
-                    label_ = tf.one_hot(
-                        examples["label"], self.config.dataset.num_classes
-                    )
+                    label_ = tf.one_hot(examples["label"], self.config.dataset.num_classes)
                 else:
                     label_ = examples["label"]
                 examples_list.append({"image": image_, "label": label_})
             examples = utils.merge_list_of_dict(examples_list)
             return examples
 
-        dataset = dataset.map(
-            _preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(_preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset
 
     def preprocess_batched(self, examples, training):
@@ -186,9 +176,7 @@ class TaskObjectRecognition(task_lib.Task):
         else:
             images_sum = tf.concat([images, images_recon], 2)
         if self.config.task.get("set_pixel_range_minus_one_to_one"):
-            norm = lambda x: (x - tf.reduce_min(x)) / (
-                tf.reduce_max(x) - tf.reduce_min(x)
-            )
+            norm = lambda x: (x - tf.reduce_min(x)) / (tf.reduce_max(x) - tf.reduce_min(x))
             images_sum = norm(images_sum)
         if eval_step <= 5:
             tf.summary.image(summary_tag + "/gt_pred", images_sum, step=train_step)
@@ -237,8 +225,6 @@ def preprocess_image(
     if image.shape[-1] == 1:
         image = tf.image.grayscale_to_rgb(image)
     if training:
-        return simclr_data_util.preprocess_for_train(
-            image, height, width, color_jitter_strength, train_crop
-        )
+        return simclr_data_util.preprocess_for_train(image, height, width, color_jitter_strength, train_crop)
     else:
         return simclr_data_util.preprocess_for_eval(image, height, width, test_crop)

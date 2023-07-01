@@ -85,9 +85,7 @@ def get_sweep(h):
                         h.sweep("config.train.batch_size", [1024]),
                         h.sweep("config.optimization.optimizer", ["lamb"]),
                         h.sweep("config.optimization.learning_rate", [2e-3]),
-                        h.sweep(
-                            "config.optimization.learning_rate_schedule", ["cosine@0.7"]
-                        ),
+                        h.sweep("config.optimization.learning_rate_schedule", ["cosine@0.7"]),
                         h.sweep("config.optimization.end_lr_factor", [0.0]),
                         h.sweep("config.optimization.warmup_steps", [10000]),
                         h.sweep("config.optimization.weight_decay", [1e-2]),

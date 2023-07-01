@@ -44,21 +44,15 @@ class Task(abc.ABC):
 
         train_transforms = config.task.get("train_transforms", [])
         eval_transforms = config.task.get("eval_transforms", [])
-        self.train_transforms = [
-            transforms.TransformRegistry.lookup(t.name)(t) for t in train_transforms
-        ]
-        self.eval_transforms = [
-            transforms.TransformRegistry.lookup(t.name)(t) for t in eval_transforms
-        ]
+        self.train_transforms = [transforms.TransformRegistry.lookup(t.name)(t) for t in train_transforms]
+        self.eval_transforms = [transforms.TransformRegistry.lookup(t.name)(t) for t in eval_transforms]
 
     @property
     def task_vocab_id(self):
         return self.config.task.vocab_id
 
     @abc.abstractmethod
-    def preprocess_single(
-        self, dataset: tf.data.Dataset, batch_duplicates: int, training: bool
-    ):
+    def preprocess_single(self, dataset: tf.data.Dataset, batch_duplicates: int, training: bool):
         """Task-specific preprocessing of individual example in the dataset.
 
         Args:

@@ -52,9 +52,7 @@ class CityscapesPanopticDataset(dataset_lib.TFRecordDataset):
         image = tf.io.decode_image(example["image/encoded"], channels=3)
         image.set_shape([1024, 2048, 3])
         label = example["image/segmentation/class/encoded"]
-        label = tf.io.decode_raw(
-            example["image/segmentation/class/encoded"], out_type=tf.int32
-        )
+        label = tf.io.decode_raw(example["image/segmentation/class/encoded"], out_type=tf.int32)
         label_shape = tf.stack([1024, 2048])
         label = tf.reshape(label, label_shape)
 
@@ -66,9 +64,7 @@ class CityscapesPanopticDataset(dataset_lib.TFRecordDataset):
         def map_ids(x, src_ids, tgt_ids):
             """Convert object ids into semantic classes."""
             x = tf.equal(x[:, :, tf.newaxis], src_ids[tf.newaxis, tf.newaxis, :])
-            x = tf.reduce_sum(
-                tf.cast(x, tgt_ids.dtype) * tgt_ids[tf.newaxis, tf.newaxis, :], -1
-            )
+            x = tf.reduce_sum(tf.cast(x, tgt_ids.dtype) * tgt_ids[tf.newaxis, tf.newaxis, :], -1)
             return x
 
         identity = map_ids(label, unique_instance_ids, new_instance_ids)
@@ -93,8 +89,6 @@ class CityscapesPanopticDataset(dataset_lib.TFRecordDataset):
             # is <city>_123456_123456.
             # Coco metrics would fail if there are duplicate image ids in preds or
             # gt.
-            "image/id": tf.strings.to_hash_bucket(
-                example["image/filename"], num_buckets=1000000000
-            ),
+            "image/id": tf.strings.to_hash_bucket(example["image/filename"], num_buckets=1000000000),
             "label_map": tf.stack([semantic, identity], -1),
         }

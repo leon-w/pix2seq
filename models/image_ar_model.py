@@ -81,9 +81,7 @@ class Model(tf.keras.models.Model):
         """Model function call for *training*."""
         with tf.name_scope(""):  # for other functions to have the same name scope.
             config = self.config
-            input_seq, target_seq = image2seqs(
-                images, config.arch_name, config.patch_size, config.patch_ordering
-            )
+            input_seq, target_seq = image2seqs(images, config.arch_name, config.patch_size, config.patch_ordering)
             logits = self.decoder(input_seq, None, training=training)
             losses = model_utils.get_loss(logits, target_seq, self.loss_type)
             loss = tf.reduce_mean(losses) / tf.math.log(2.0)
@@ -136,9 +134,7 @@ def image2seqs(images, arch_name, patch_size, patch_ordering="snake"):
         target_seq = tf.cast(images * 255.0, tf.int32)  # (bsz, seqlen)
         input_seq = tf.concat([tf.zeros_like(target_seq[:, :1]), target_seq[:, :-1]], 1)
     else:
-        images = utils.extract_patches(
-            images, [patch_size, patch_size], patch_ordering=patch_ordering
-        )
+        images = utils.extract_patches(images, [patch_size, patch_size], patch_ordering=patch_ordering)
         target_seq = tf.cast(images * 255.0, tf.int32)  # (bsz, groups, seqlen)
         flat_seq = einops.rearrange(target_seq, "b n m -> b (n m)")
         input_seq = tf.concat([tf.zeros_like(flat_seq[:, :1]), flat_seq[:, :-1]], 1)

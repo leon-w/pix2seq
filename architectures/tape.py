@@ -85,15 +85,11 @@ class TapeDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
             name="time_emb",
         )
         if cond_proj:
-            self.cond_proj = tf.keras.layers.Dense(
-                latent_dim if self._cond_on_latent else cond_dim, name="cond_proj"
-            )
+            self.cond_proj = tf.keras.layers.Dense(latent_dim if self._cond_on_latent else cond_dim, name="cond_proj")
         else:
             self.cond_proj = lambda x: x
 
-        self.make_latent_pos(
-            latent_slots, latent_dim, latent_pos_encoding, time_scaling
-        )
+        self.make_latent_pos(latent_slots, latent_dim, latent_pos_encoding, time_scaling)
         self.make_tape_pos(tape_dim, tape_pos_encoding, time_scaling)
 
         if self_cond in ["latent", "latent+tape"]:
@@ -196,16 +192,10 @@ class TapeDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     drop_att=drop_att,
                     name=f"latent_processing_unit{i}",
                 )
-        self.output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, center=True, scale=True, name="output_ln"
-        )
-        self.output_linear = tf.keras.layers.Dense(
-            self._output_dim, name="output_linear"
-        )
+        self.output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, center=True, scale=True, name="output_ln")
+        self.output_linear = tf.keras.layers.Dense(self._output_dim, name="output_linear")
 
-    def make_latent_pos(
-        self, latent_slots, latent_dim, latent_pos_encoding, time_scaling
-    ):
+    def make_latent_pos(self, latent_slots, latent_dim, latent_pos_encoding, time_scaling):
         if latent_pos_encoding in ["sin_cos_plus_learned"]:
             self.latent_pos_emb = add_vis_pos_emb(
                 self,
@@ -304,27 +294,17 @@ class TapeDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         return latent
 
     def _merge_tape(self, tape_writable, tape_readonly):
-        tape_merged = (
-            tape_writable
-            if tape_readonly is None
-            else (tf.concat([tape_writable, tape_readonly], 1))
-        )
+        tape_merged = tape_writable if tape_readonly is None else (tf.concat([tape_writable, tape_readonly], 1))
         return tape_merged
 
     def compute(self, latent, tape, tape_r, training):
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
-                latent = self.read_cond_units[str(i)](
-                    latent, tape_r, None, None, None, training
-                )[0]
-                latent = self.read_units[str(i)](
-                    latent, tape, None, None, None, training
-                )[0]
+                latent = self.read_cond_units[str(i)](latent, tape_r, None, None, None, training)[0]
+                latent = self.read_units[str(i)](latent, tape, None, None, None, training)[0]
             else:
                 tape_merged = self._merge_tape(tape, tape_r)
-                latent = self.read_units[str(i)](
-                    latent, tape_merged, None, None, None, training
-                )[0]
+                latent = self.read_units[str(i)](latent, tape_merged, None, None, None, training)[0]
             latent = self.latent_processing_units[str(i)](latent, None, training)
             tape = self.write_units[str(i)](tape, latent, None, None, None, training)[0]
             tape = self.conv_units[str(i)](tape, training, size=self._num_tokens)
@@ -383,9 +363,7 @@ class TokenTapeDenoiser(TapeDenoiser):  # pylint: disable=missing-docstring
     ):
         self._num_tokens = num_tokens
         if tape_pos_encoding in ["sin_cos", "sin_cos_plus_learned"]:
-            self._n_rows = self._n_cols = tf.cast(
-                tf.math.sqrt(tf.cast(num_tokens, tf.float32)), tf.int32
-            )
+            self._n_rows = self._n_cols = tf.cast(tf.math.sqrt(tf.cast(num_tokens, tf.float32)), tf.int32)
         else:
             self._n_rows, self._n_cols = num_tokens, 1
         self._output_dim = token_output_dim
@@ -577,9 +555,7 @@ class VideoTapeDenoiser(TapeDenoiser):  # pylint: disable=missing-docstring
                 return_only=True,
                 normalization_max=time_scaling,
             )
-            self.tape_pos_emb = einops.repeat(
-                self.tape_pos_emb, "hw d -> (t hw) d", t=self._n_time
-            )
+            self.tape_pos_emb = einops.repeat(self.tape_pos_emb, "hw d -> (t hw) d", t=self._n_time)
             self.tape_pos_emb_res = self.add_weight(
                 shape=(self._n_time * self._n_rows * self._n_cols, tape_dim),
                 initializer="zeros",

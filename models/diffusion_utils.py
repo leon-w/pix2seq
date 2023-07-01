@@ -78,9 +78,7 @@ class Scheduler(object):
         inputs_noised = inputs * sqrt(gamma) + noise * sqrt(1 - gamma)
         return inputs_noised, noise, time_step, gamma
 
-    def transition_step(
-        self, samples, data_pred, noise_pred, gamma_now, gamma_prev, sampler_name
-    ):
+    def transition_step(self, samples, data_pred, noise_pred, gamma_now, gamma_prev, sampler_name):
         """Transition to states with a smaller time step."""
         ddpm_var_type = "large"
         if sampler_name.startswith("ddpm") and "@" in sampler_name:
@@ -91,15 +89,11 @@ class Scheduler(object):
         elif sampler_name.startswith("ddpm"):
             log_alpha_t = tf.math.log(gamma_now) - tf.math.log(gamma_prev)
             alpha_t = tf.clip_by_value(tf.math.exp(log_alpha_t), 0.0, 1.0)
-            x_mean = tf.math.rsqrt(alpha_t) * (
-                samples - tf.math.rsqrt(1 - gamma_now) * (1 - alpha_t) * noise_pred
-            )
+            x_mean = tf.math.rsqrt(alpha_t) * (samples - tf.math.rsqrt(1 - gamma_now) * (1 - alpha_t) * noise_pred)
             if ddpm_var_type == "large":
                 var_t = 1.0 - alpha_t  # var = beta_t
             elif ddpm_var_type == "small":
-                var_t = tf.math.exp(
-                    tf.math.log1p(-gamma_prev) - tf.math.log1p(-gamma_now)
-                ) * (1.0 - alpha_t)
+                var_t = tf.math.exp(tf.math.log1p(-gamma_prev) - tf.math.log1p(-gamma_now)) * (1.0 - alpha_t)
             else:
                 raise ValueError(f"Unknown ddpm_var_type {ddpm_var_type}")
             eps = self.sample_noise(tf.shape(data_pred))
@@ -144,14 +138,8 @@ class Scheduler(object):
         """
         num_samples = samples_shape[0]
         ts = tf.ones([num_samples] + [1] * (len(samples_shape) - 1))
-        get_step = lambda t: ts * (  # pylint: disable=g-long-lambda
-            1.0 - tf.cast(t, tf.float32) / iterations
-        )
-        time_transform = (
-            self.time_transform
-            if schedule is None
-            else (self.get_time_transform(schedule))
-        )
+        get_step = lambda t: ts * (1.0 - tf.cast(t, tf.float32) / iterations)  # pylint: disable=g-long-lambda
+        time_transform = self.time_transform if schedule is None else (self.get_time_transform(schedule))
 
         samples = self.sample_noise(samples_shape)
         noise_pred, data_pred = tf.zeros_like(samples), tf.zeros_like(samples)
@@ -159,9 +147,7 @@ class Scheduler(object):
         if hidden_shapes is None:
             ctx = SelfCondEstimateContext(self_cond, samples_shape, self_cond_decay)
         else:
-            ctx = SelfCondHiddenContext(
-                self_cond, samples_shape, hidden_shapes, self_cond_decay
-            )
+            ctx = SelfCondHiddenContext(self_cond, samples_shape, hidden_shapes, self_cond_decay)
         pred_out = ctx.init_denoise_out(samples_shape)
         for t in tf.range(iterations):
             t = tf.cast(t, tf.float32)
@@ -185,20 +171,12 @@ class Scheduler(object):
                     training=False,
                     drop_label=True,
                 )
-                pred_out_nl = (
-                    pred_out_nl[0] if isinstance(pred_out_nl, tuple) else (pred_out_nl)
-                )
-            pred_out_l = transition_f(
-                ctx.contextualized_inputs(samples), gamma, training=False
-            )
+                pred_out_nl = pred_out_nl[0] if isinstance(pred_out_nl, tuple) else (pred_out_nl)
+            pred_out_l = transition_f(ctx.contextualized_inputs(samples), gamma, training=False)
             pred_out = pred_out_l
-            pred_out_l = (
-                pred_out_l[0] if isinstance(pred_out_l, tuple) else (pred_out_l)
-            )
+            pred_out_l = pred_out_l[0] if isinstance(pred_out_l, tuple) else (pred_out_l)
             pred_out_ = pred_out_l * (1 + guidance) - pred_out_nl * guidance
-            x0_eps = get_x0_eps(
-                samples, gamma, pred_out_, pred_type, x0_clip_fn, truncate_noise=True
-            )
+            x0_eps = get_x0_eps(samples, gamma, pred_out_, pred_type, x0_clip_fn, truncate_noise=True)
             noise_pred, data_pred = x0_eps["noise_pred"], x0_eps["data_pred"]
             samples = self.transition_step(
                 samples=samples,
@@ -322,9 +300,7 @@ def cosine_schedule(t, start=0.0, end=0.5, tau=1.0, clip_min=1e-9):
     """
     y_start = tf.math.cos(start * math.pi / 2) ** (2 * tau)
     y_end = tf.math.cos(end * math.pi / 2) ** (2 * tau)
-    output = (
-        tf.math.cos((t * (end - start) + start) * math.pi / 2) ** (2 * tau) - y_end
-    ) / (y_start - y_end)
+    output = (tf.math.cos((t * (end - start) + start) * math.pi / 2) ** (2 * tau) - y_end) / (y_start - y_end)
     return tf.clip_by_value(output, clip_min, 1.0)
 
 
@@ -343,9 +319,7 @@ def sigmoid_schedule(t, start=-3.0, end=3.0, tau=1.0, clip_min=1e-9):
     """
     v_start = tf.sigmoid(start / tau)
     v_end = tf.sigmoid(end / tau)
-    output = (-tf.sigmoid((t * (end - start) + start) / tau) + v_end) / (
-        v_end - v_start
-    )
+    output = (-tf.sigmoid((t * (end - start) + start) / tau) + v_end) / (v_end - v_start)
     return tf.clip_by_value(output, clip_min, 1.0)
 
 
@@ -475,12 +449,8 @@ def add_self_cond_estimate(
     placeholder = tf.zeros_like(x_noised_p)
     pred_out = denoise_f(tf.concat([x_noised_p, placeholder], -1), gamma_p, training)
     x0_clip_fn = get_x0_clipping_function(x0_clip)
-    x0_eps = get_x0_eps(
-        x_noised_p, gamma_p, pred_out, pred_type, x0_clip_fn, truncate_noise=True
-    )
-    estimate = get_self_cond_estimate(
-        x0_eps["data_pred"], x0_eps["noise_pred"], self_cond, pred_type
-    )
+    x0_eps = get_x0_eps(x_noised_p, gamma_p, pred_out, pred_type, x0_clip_fn, truncate_noise=True)
+    estimate = get_self_cond_estimate(x0_eps["data_pred"], x0_eps["noise_pred"], self_cond, pred_type)
     estimate = tf.concat([estimate, tf.zeros_like(x_noised[num_sc_examples:])], 0)
     estimate = tf.stop_gradient(estimate)
     return tf.concat([x_noised, estimate], -1)

@@ -48,9 +48,7 @@ class WarmUpAndDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
         elif learning_rate_scaling == "none" or learning_rate_scaling is None:
             self.base_lr = base_learning_rate
         else:
-            raise ValueError(
-                "Unknown learning rate scaling {}".format(learning_rate_scaling)
-            )
+            raise ValueError("Unknown learning rate scaling {}".format(learning_rate_scaling))
 
     def __call__(self, step):
         base_lr = self.base_lr
@@ -83,24 +81,16 @@ class WarmUpAndDecay(tf.keras.optimizers.schedules.LearningRateSchedule):
             decayed_lr = cosine_decay(step - warmup_steps)
         elif schedule.startswith("exp@"):
             if tail_steps > 0:
-                raise ValueError(
-                    f"tail_steps={tail_steps} is not effective for exp schedule."
-                )
+                raise ValueError(f"tail_steps={tail_steps} is not effective for exp schedule.")
             rate = float(schedule.split("@")[1])
-            exp_decay = tf.keras.optimizers.schedules.ExponentialDecay(
-                base_lr, total_steps - warmup_steps, rate
-            )
+            exp_decay = tf.keras.optimizers.schedules.ExponentialDecay(base_lr, total_steps - warmup_steps, rate)
             decayed_lr = exp_decay(step - warmup_steps)
         elif schedule == "none":
             decayed_lr = base_lr
         else:
             raise ValueError("Unknown learnig rate schedule {}".format(schedule))
 
-        learning_rate_warmup = (
-            tf.cast(step, tf.float32) / float(warmup_steps) * base_lr
-            if warmup_steps
-            else base_lr
-        )
+        learning_rate_warmup = tf.cast(step, tf.float32) / float(warmup_steps) * base_lr if warmup_steps else base_lr
         learning_rate = tf.where(step < warmup_steps, learning_rate_warmup, decayed_lr)
         return learning_rate
 
@@ -130,9 +120,7 @@ class AdamWeightDecay(tf.keras.optimizers.legacy.Adam):
         name="AdamWeightDecay",
         **kwargs,
     ):
-        super(AdamWeightDecay, self).__init__(
-            learning_rate, beta_1, beta_2, epsilon, amsgrad, name=name, **kwargs
-        )
+        super(AdamWeightDecay, self).__init__(learning_rate, beta_1, beta_2, epsilon, amsgrad, name=name, **kwargs)
         self.weight_decay_rate = weight_decay_rate
         self._include_in_weight_decay = include_in_weight_decay
         self._exclude_from_weight_decay = exclude_from_weight_decay
@@ -149,9 +137,7 @@ class AdamWeightDecay(tf.keras.optimizers.legacy.Adam):
         do_decay = self._do_use_weight_decay(var.name)
         if do_decay:
             return var.assign_sub(
-                learning_rate
-                * var
-                * apply_state[(var.device, var.dtype.base_dtype)]["weight_decay_rate"],
+                learning_rate * var * apply_state[(var.device, var.dtype.base_dtype)]["weight_decay_rate"],
                 use_locking=self._use_locking,
             )
         return tf.no_op()
@@ -173,17 +159,13 @@ class AdamWeightDecay(tf.keras.optimizers.legacy.Adam):
         lr_t, kwargs = self._get_lr(var.device, var.dtype.base_dtype, apply_state)
         decay = self._decay_weights_op(var, lr_t, apply_state)
         with tf.control_dependencies([decay]):
-            return super(AdamWeightDecay, self)._resource_apply_dense(
-                grad, var, **kwargs
-            )
+            return super(AdamWeightDecay, self)._resource_apply_dense(grad, var, **kwargs)
 
     def _resource_apply_sparse(self, grad, var, indices, apply_state=None):
         lr_t, kwargs = self._get_lr(var.device, var.dtype.base_dtype, apply_state)
         decay = self._decay_weights_op(var, lr_t, apply_state)
         with tf.control_dependencies([decay]):
-            return super(AdamWeightDecay, self)._resource_apply_sparse(
-                grad, var, indices, **kwargs
-            )
+            return super(AdamWeightDecay, self)._resource_apply_sparse(grad, var, indices, **kwargs)
 
     def get_config(self):
         config = super(AdamWeightDecay, self).get_config()
@@ -250,9 +232,7 @@ def build_optimizer(config, learning_rate):
             epsilon=config.eps,
             global_clipnorm=clipnorm,
         )
-        optimizer.exclude_from_weight_decay(
-            var_names=exclude_str.split(",") if exclude_str else []
-        )
+        optimizer.exclude_from_weight_decay(var_names=exclude_str.split(",") if exclude_str else [])
         return optimizer
     elif config.optimizer == "lamb":
         exclude_str = config.get("exclude_from_weight_decay", "bias,beta,gamma,emb")
@@ -301,9 +281,7 @@ def get_loss(logits, label_seq, loss_type):
             label_hot = label_smoothing + label_hot * (1.0 - 2.0 * label_smoothing)
         log_p = tf.math.log_sigmoid(logits)
         log_p_not = tf.math.log_sigmoid(-logits)
-        loss = -tf.reduce_sum(
-            label_hot * log_p + (1.0 - label_hot) * log_p_not, axis=-1
-        )
+        loss = -tf.reduce_sum(label_hot * log_p + (1.0 - label_hot) * log_p_not, axis=-1)
     elif "focal" in loss_type:
         gamma = float(_extract_loss_param(loss_type))
         p = tf.nn.softmax(logits)

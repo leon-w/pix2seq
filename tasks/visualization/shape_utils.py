@@ -141,24 +141,17 @@ def pad_or_clip_nd(tensor, output_shape):
         tf.where(tensor_shape[i] - shape > 0, shape, -1) if shape is not None else -1
         for i, shape in enumerate(output_shape)
     ]
-    clipped_tensor = tf.slice(
-        tensor, begin=tf.zeros(len(clip_size), dtype=tf.int32), size=clip_size
-    )
+    clipped_tensor = tf.slice(tensor, begin=tf.zeros(len(clip_size), dtype=tf.int32), size=clip_size)
 
     # Pad tensor if the shape of clipped tensor is smaller than the expected
     # shape.
     clipped_tensor_shape = tf.shape(clipped_tensor)
     trailing_paddings = [
-        shape - clipped_tensor_shape[i] if shape is not None else 0
-        for i, shape in enumerate(output_shape)
+        shape - clipped_tensor_shape[i] if shape is not None else 0 for i, shape in enumerate(output_shape)
     ]
-    paddings = tf.stack(
-        [tf.zeros(len(trailing_paddings), dtype=tf.int32), trailing_paddings], axis=1
-    )
+    paddings = tf.stack([tf.zeros(len(trailing_paddings), dtype=tf.int32), trailing_paddings], axis=1)
     padded_tensor = tf.pad(clipped_tensor, paddings=paddings)
-    output_static_shape = [
-        dim if not isinstance(dim, tf.Tensor) else None for dim in output_shape
-    ]
+    output_static_shape = [dim if not isinstance(dim, tf.Tensor) else None for dim in output_shape]
     padded_tensor.set_shape(output_static_shape)
     return padded_tensor
 
@@ -186,9 +179,7 @@ def combined_static_and_dynamic_shape(tensor):
     return combined_shape
 
 
-def static_or_dynamic_map_fn(
-    fn, elems, dtype=None, parallel_iterations=32, back_prop=True
-):
+def static_or_dynamic_map_fn(fn, elems, dtype=None, parallel_iterations=32, back_prop=True):
     """Runs map_fn as a (static) for loop when possible.
 
     This function rewrites the map_fn as an explicit unstack input -> for loop
@@ -236,11 +227,7 @@ def static_or_dynamic_map_fn(
         # Fall back on tf.map_fn if shapes of each entry of `elems` are None or fail
         # to all be the same size along the batch dimension.
         for elem_shape in elem_shapes:
-            if (
-                not elem_shape
-                or not elem_shape[0]
-                or elem_shape[0] != elem_shapes[0][0]
-            ):
+            if not elem_shape or not elem_shape[0] or elem_shape[0] != elem_shapes[0][0]:
                 return tf.map_fn(fn, elems, dtype, parallel_iterations, back_prop)
         arg_tuples = zip(*[tf.unstack(elem) for elem in elems])
         outputs = [fn(arg_tuple) for arg_tuple in arg_tuples]
@@ -256,12 +243,7 @@ def static_or_dynamic_map_fn(
         return tf.stack(outputs)
     else:
         if all([isinstance(output, list) for output in outputs]):
-            if all(
-                [
-                    all([isinstance(entry, tf.Tensor) for entry in output_list])
-                    for output_list in outputs
-                ]
-            ):
+            if all([all([isinstance(entry, tf.Tensor) for entry in output_list]) for output_list in outputs]):
                 return [tf.stack(output_tuple) for output_tuple in zip(*outputs)]
     raise ValueError("`fn` should return a Tensor or a list of Tensors.")
 
@@ -329,9 +311,7 @@ def assert_shape_equal(shape_a, shape_b):
     Raises:
       ValueError: When shapes are both static and unequal.
     """
-    if all(isinstance(dim, int) for dim in shape_a) and all(
-        isinstance(dim, int) for dim in shape_b
-    ):
+    if all(isinstance(dim, int) for dim in shape_a) and all(isinstance(dim, int) for dim in shape_b):
         if shape_a != shape_b:
             raise ValueError("Unequal shapes {}, {}".format(shape_a, shape_b))
         else:
@@ -362,9 +342,7 @@ def assert_shape_equal_along_first_dimension(shape_a, shape_b):
     """
     if isinstance(shape_a[0], int) and isinstance(shape_b[0], int):
         if shape_a[0] != shape_b[0]:
-            raise ValueError(
-                "Unequal first dimension {}, {}".format(shape_a[0], shape_b[0])
-            )
+            raise ValueError("Unequal first dimension {}, {}".format(shape_a[0], shape_b[0]))
         else:
             return tf.no_op()
     else:
@@ -424,9 +402,7 @@ def flatten_dimensions(inputs, first, last):
     if first >= inputs.shape.ndims or last > inputs.shape.ndims:
         raise ValueError(
             "`first` and `last` must be less than inputs.shape.ndims. "
-            "found {} and {} respectively while ndims is {}".format(
-                first, last, inputs.shape.ndims
-            )
+            "found {} and {} respectively while ndims is {}".format(first, last, inputs.shape.ndims)
         )
     shape = combined_static_and_dynamic_shape(inputs)
     flattened_dim_prod = tf.reduce_prod(shape[first:last], keepdims=True)
@@ -481,9 +457,7 @@ def expand_first_dimension(inputs, dims):
     assert_op = tf.assert_equal(
         inputs_shape[0],
         tf.reduce_prod(tf.stack(dims)),
-        message=(
-            "First dimension of `inputs` cannot be expanded into provided " "`dims`"
-        ),
+        message=("First dimension of `inputs` cannot be expanded into provided " "`dims`"),
     )
 
     with tf.control_dependencies([assert_op]):
@@ -508,15 +482,11 @@ def resize_images_and_return_shapes(inputs, image_resizer_fn):
     """
 
     if inputs.dtype is not tf.float32:
-        raise ValueError(
-            "`resize_images_and_return_shapes` expects a" " tf.float32 tensor"
-        )
+        raise ValueError("`resize_images_and_return_shapes` expects a" " tf.float32 tensor")
 
     # TODO(jonathanhuang): revisit whether to always use batch size as
     # the number of parallel iterations vs allow for dynamic batching.
-    outputs = static_or_dynamic_map_fn(
-        image_resizer_fn, elems=inputs, dtype=[tf.float32, tf.int32]
-    )
+    outputs = static_or_dynamic_map_fn(image_resizer_fn, elems=inputs, dtype=[tf.float32, tf.int32])
     resized_inputs = outputs[0]
     true_image_shapes = outputs[1]
 

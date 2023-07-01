@@ -50,9 +50,7 @@ def flatten_batch_dims(t, out_rank):
     if t.shape.rank == out_rank:
         return t
     if t.shape.rank < out_rank:
-        raise ValueError(
-            "Tensor has rank %d. Expected at least %d" % (t.shape.rank, out_rank)
-        )
+        raise ValueError("Tensor has rank %d. Expected at least %d" % (t.shape.rank, out_rank))
     shape_list = shape_as_list(t)
     in_rank = len(shape_list)
     split = in_rank - out_rank + 1
@@ -67,9 +65,7 @@ def flatten_non_batch_dims(t, out_rank):
     if t.shape.rank == out_rank:
         return t
     if t.shape.rank < out_rank:
-        raise ValueError(
-            "Tensor has rank %d. Expected at least %d" % (t.shape.rank, out_rank)
-        )
+        raise ValueError("Tensor has rank %d. Expected at least %d" % (t.shape.rank, out_rank))
     shape_list = shape_as_list(t)
     split = out_rank - 1
     inner_dims = shape_list[:split]
@@ -101,9 +97,7 @@ def images2patches(images, patch_size, dividers=(1,), keep_spatial=True):
     for d in dividers:
         inputs = images
         if d > 1:
-            inputs = tf.image.resize(
-                inputs, [height // d, width // d], method="bicubic", antialias=True
-            )
+            inputs = tf.image.resize(inputs, [height // d, width // d], method="bicubic", antialias=True)
         patches = tf.image.extract_patches(
             inputs,
             sizes=[1, patch_size, patch_size, 1],
@@ -213,9 +207,7 @@ def images2glimpses2tokens(images, sub_image_size, patch_size, mini_x=0, shuffle
         images_seq = images_sub
     tokens = [extract_patches(images_, patch_size) for images_ in images_seq]
     tokens = tf.stack(tokens, 1)
-    idx = tf.tile(
-        tf.expand_dims(tf.range(sub_ratio_h * sub_ratio_w + mini_x), 0), [bsz, 1]
-    )
+    idx = tf.tile(tf.expand_dims(tf.range(sub_ratio_h * sub_ratio_w + mini_x), 0), [bsz, 1])
     idx = tf.vectorized_map(tf.random.shuffle, idx) if shuffle else idx
     tokens = tf.gather(tokens, idx, axis=1, batch_dims=1)
     idx_hot = tf.one_hot(idx, sub_ratio_h * sub_ratio_w + mini_x)
@@ -235,9 +227,7 @@ def tokens2subimages2images(tokens, sub_image_size, patch_size, image_size):
     num_sub_images_y = image_size[0] // sub_image_size[0]
     num_sub_images_x = image_size[1] // sub_image_size[1]
     sub_images = [
-        tokens2images(
-            tokens[:, i, :, :], patch_size, sub_image_size[0], sub_image_size[1]
-        )
+        tokens2images(tokens[:, i, :, :], patch_size, sub_image_size[0], sub_image_size[1])
         for i in range(tokens.shape[1])
     ]
     images = combine_sub_images(sub_images, num_sub_images_y, num_sub_images_x)
@@ -264,10 +254,7 @@ def shape_as_list(t):
     # Assumes rank of `t` is statically known.
     shape = t.shape.as_list()
     dynamic_shape = tf.shape(t)
-    return [
-        shape[i] if shape[i] is not None else dynamic_shape[i]
-        for i in range(len(shape))
-    ]
+    return [shape[i] if shape[i] is not None else dynamic_shape[i] for i in range(len(shape))]
 
 
 def pad_to_max_len(data, max_len, dim, padding_token=0):
@@ -330,9 +317,7 @@ def scale_points(points, scale):
 
 def preserve_reserved_tokens(points, points_orig):
     """Preserve reserved tokens in points according to points_orig."""
-    return replace_reserved_tokens(
-        points, points_orig, dict(zip(vocab.FLOATS, vocab.FLOATS))
-    )
+    return replace_reserved_tokens(points, points_orig, dict(zip(vocab.FLOATS, vocab.FLOATS)))
 
 
 def replace_reserved_tokens(seq, ref_seq, replacements):
@@ -428,30 +413,18 @@ def get_train_steps(dataset, train_steps, train_epochs, train_batch_size):
 def get_eval_steps(dataset, eval_steps, eval_batch_size):
     """Determine the number of eval steps."""
     num_eval_examples = dataset.num_eval_examples
-    if (
-        not eval_steps
-        and num_eval_examples
-        and (num_eval_examples % eval_batch_size != 0)
-    ):
+    if not eval_steps and num_eval_examples and (num_eval_examples % eval_batch_size != 0):
         raise ValueError("Only divisible eval batch sizes are currently supported.")
     # TODO(b/181662974): Revert this and support non-even batch sizes.
     # return eval_steps or int(
     #     math.ceil(num_eval_examples / eval_batch_size))
-    return eval_steps or (
-        int(math.floor(num_eval_examples / eval_batch_size))
-        if num_eval_examples
-        else None
-    )
+    return eval_steps or (int(math.floor(num_eval_examples / eval_batch_size)) if num_eval_examples else None)
 
 
-def get_checkpoint_steps(
-    dataset, checkpoint_steps, checkpoint_epochs, train_batch_size
-):
+def get_checkpoint_steps(dataset, checkpoint_steps, checkpoint_epochs, train_batch_size):
     """Determine the number of checkpoint steps."""
     num_train_examples = dataset.num_train_examples
-    return checkpoint_steps or checkpoint_epochs * int(
-        round(num_train_examples / train_batch_size)
-    )
+    return checkpoint_steps or checkpoint_epochs * int(round(num_train_examples / train_batch_size))
 
 
 def count_params(model, verbose=True):
@@ -539,9 +512,7 @@ def copy_dir(source_dir, destination_dir):
         for filename in filenames
     ]
     run_in_parallel(copy_fns)
-    logging.info(
-        "Copying %d files took %.2f seconds", len(filenames), time.time() - start
-    )
+    logging.info("Copying %d files took %.2f seconds", len(filenames), time.time() - start)
 
 
 def run_in_parallel(fns):

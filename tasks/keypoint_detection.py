@@ -41,14 +41,10 @@ class TaskKeypointDetection(task_lib.Task):
 
         if config.task.get("max_seq_len", "auto") == "auto":
             self.config.task.max_seq_len = 5 + config.task.max_points_per_object * 2
-        self._category_names = task_utils.get_category_names(
-            config.dataset.get("category_names_path")
-        )
+        self._category_names = task_utils.get_category_names(config.dataset.get("category_names_path"))
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._coco_metrics = metric_registry.MetricRegistry.lookup(
-                metric_config.name
-            )(config)
+            self._coco_metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
         else:
             self._coco_metrics = None
 
@@ -64,9 +60,7 @@ class TaskKeypointDetection(task_lib.Task):
         Returns:
           A dataset.
         """
-        dataset = data_utils.maybe_unbatch_instances_and_crop_image_to_bbox(
-            dataset, self.config
-        )
+        dataset = data_utils.maybe_unbatch_instances_and_crop_image_to_bbox(dataset, self.config)
 
         if training:
             dataset = dataset.filter(  # Filter out images with no annotations.
@@ -127,9 +121,7 @@ class TaskKeypointDetection(task_lib.Task):
         input_seq = tf.where(mask_selector, mask_seq, input_seq)
 
         # Compute weights for target tokens (downweight invisible token tokens).
-        token_weights = tf.concat(
-            [tf.zeros_like(prompt_seq)[..., :-1], tf.ones_like(response_seq)], -1
-        )
+        token_weights = tf.concat([tf.zeros_like(prompt_seq)[..., :-1], tf.ones_like(response_seq)], -1)
         token_weights = tf.cast(token_weights, tf.float32)
         token_weights = tf.where(
             target_seq == vocab.INVISIBLE_TOKEN,
@@ -206,14 +198,10 @@ class TaskKeypointDetection(task_lib.Task):
             logits -= offset
 
             sampling_logits = logits / tf.cast(config.temperature, tf.float32)
-            sampling_logits = transformers.top_logits(
-                sampling_logits, k=config.top_k, p=config.top_p
-            )
+            sampling_logits = transformers.top_logits(sampling_logits, k=config.top_k, p=config.top_p)
             bsz, seq_len, dim = sampling_logits.shape.as_list()
             sampling_logits = tf.reshape(sampling_logits, [-1, dim])
-            pred_seq_no_suppressed = tf.random.categorical(
-                sampling_logits, num_samples=1, dtype=tf.int64
-            )[:, 0]
+            pred_seq_no_suppressed = tf.random.categorical(sampling_logits, num_samples=1, dtype=tf.int64)[:, 0]
             pred_seq_no_suppressed = tf.reshape(pred_seq_no_suppressed, [bsz, seq_len])
             suppress_token = tf.zeros_like(pred_seq, dtype=tf.bool)
             for i in eval_suppress_tokens:
@@ -280,9 +268,7 @@ class TaskKeypointDetection(task_lib.Task):
             scale = utils.tf_float32(image_size)
         else:
             # scale points to original image size during eval.
-            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(
-                unpadded_image_size
-            )
+            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(unpadded_image_size)
             scale = scale * utils.tf_float32(orig_image_size)
             scale = tf.expand_dims(scale, 1)
 
@@ -293,15 +279,11 @@ class TaskKeypointDetection(task_lib.Task):
         pred_points = pred_points[:, : config.max_points_per_object * 2]
         bbox_center_y = (pred_bboxes[:, 2] + pred_bboxes[:, 0]) / 2.0
         bbox_center_x = (pred_bboxes[:, 3] + pred_bboxes[:, 1]) / 2.0
-        bbox_center_points = tf.tile(
-            tf.stack([bbox_center_y, bbox_center_x], -1), [1, 17]
-        )
+        bbox_center_points = tf.tile(tf.stack([bbox_center_y, bbox_center_x], -1), [1, 17])
 
         invisible_point = tf.equal(pred_points, vocab.INVISIBLE_FLOAT)
         # Strategy 1: replcae invisible keypoint with bbox center.
-        pred_points = tf.where(
-            tf.cast(invisible_point, tf.bool), bbox_center_points, pred_points
-        )
+        pred_points = tf.where(tf.cast(invisible_point, tf.bool), bbox_center_points, pred_points)
         # Strategy 2: replace instance with no visible keypiont with bbox center.
         # no_keypoint = tf.reduce_prod(utils.tf_float32(invisible_point), -1)
         # pred_points = tf.where(tf.cast(tf.expand_dims(no_keypoint, -1), tf.bool),
@@ -315,9 +297,7 @@ class TaskKeypointDetection(task_lib.Task):
             )
 
         if config.points_score_weight:
-            scores = task_utils.compute_weighted_scores(
-                scores, pred_seq, logits, config.points_score_weight
-            )
+            scores = task_utils.compute_weighted_scores(scores, pred_seq, logits, config.points_score_weight)
         scores = tf.reshape(scores, [-1])
         # Set non-person class to zero score.
         is_person = tf.equal(pred_classes, 1)
@@ -381,9 +361,7 @@ class TaskKeypointDetection(task_lib.Task):
 
         # Log/accumulate metrics.
         if self._coco_metrics:
-            self._coco_metrics.record_prediction(
-                image_ids, pred_points_rescaled, pred_classes, scores
-            )
+            self._coco_metrics.record_prediction(image_ids, pred_points_rescaled, pred_classes, scores)
 
         # Image summary.
         pred_bboxes = tf.reshape(pred_bboxes, [-1, n_instances, 4])
@@ -395,11 +373,7 @@ class TaskKeypointDetection(task_lib.Task):
             val_list = [(pred_bboxes, pred_points, pred_classes, scores, "pred")]
             ret_images = {}
             for bboxes_, keypoints_, classes_, scores_, tag_ in val_list:
-                tag = (
-                    summary_tag
-                    + "/"
-                    + task_utils.join_if_not_none([tag_, "point", eval_step], "_")
-                )
+                tag = summary_tag + "/" + task_utils.join_if_not_none([tag_, "point", eval_step], "_")
                 images_ = np.copy(tf.image.convert_image_dtype(images, tf.uint8))
                 ret_images[tag_] = add_image_summary_with_keypoints(
                     images_,
@@ -432,9 +406,7 @@ class TaskKeypointDetection(task_lib.Task):
             with tf.name_scope(eval_tag):
                 self._log_metrics(metrics, step)
             summary_writer.flush()
-        result_json_path = os.path.join(
-            self.config.model_dir, eval_tag + "cocoeval.pkl"
-        )
+        result_json_path = os.path.join(self.config.model_dir, eval_tag + "cocoeval.pkl")
         if self._coco_metrics:
             tosave = {
                 "dataset": self._coco_metrics.dataset,
@@ -498,9 +470,7 @@ def add_image_summary_with_keypoints(
             keypoint_edges[i][j] -= 1
 
     new_images = []
-    for image_, boxes_, keypoints_, classes_, scores_ in zip(
-        images, bboxes, keypoints, classes, scores
-    ):
+    for image_, boxes_, keypoints_, classes_, scores_ in zip(images, bboxes, keypoints, classes, scores):
         keep_indices = np.where(classes_ == person_class_id)[0]
         image = vis_utils.visualize_boxes_and_labels_on_image_array(
             image=image_,

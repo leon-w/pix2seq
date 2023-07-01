@@ -85,9 +85,7 @@ class BatchNormRelu(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
 
 
 class DropBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
-    def __init__(
-        self, keep_prob, dropblock_size, data_format="channels_last", **kwargs
-    ):
+    def __init__(self, keep_prob, dropblock_size, data_format="channels_last", **kwargs):
         self.keep_prob = keep_prob
         self.dropblock_size = dropblock_size
         self.data_format = data_format
@@ -100,11 +98,7 @@ class DropBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         if not training or keep_prob is None:
             return net
 
-        tf.logging.info(
-            "Applying DropBlock: dropblock_size {}, net.shape {}".format(
-                dropblock_size, net.shape
-            )
-        )
+        tf.logging.info("Applying DropBlock: dropblock_size {}, net.shape {}".format(dropblock_size, net.shape))
 
         if data_format == "channels_last":
             _, width, height, _ = net.get_shape().as_list()
@@ -115,28 +109,17 @@ class DropBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
 
         dropblock_size = min(dropblock_size, width)
         # seed_drop_rate is the gamma parameter of DropBlcok.
-        seed_drop_rate = (
-            (1.0 - keep_prob)
-            * width**2
-            / dropblock_size**2
-            / (width - dropblock_size + 1) ** 2
-        )
+        seed_drop_rate = (1.0 - keep_prob) * width**2 / dropblock_size**2 / (width - dropblock_size + 1) ** 2
 
         # Forces the block to be inside the feature map.
         w_i, h_i = tf.meshgrid(tf.range(width), tf.range(width))
         valid_block_center = tf.logical_and(
-            tf.logical_and(
-                w_i >= int(dropblock_size // 2), w_i < width - (dropblock_size - 1) // 2
-            ),
-            tf.logical_and(
-                h_i >= int(dropblock_size // 2), h_i < width - (dropblock_size - 1) // 2
-            ),
+            tf.logical_and(w_i >= int(dropblock_size // 2), w_i < width - (dropblock_size - 1) // 2),
+            tf.logical_and(h_i >= int(dropblock_size // 2), h_i < width - (dropblock_size - 1) // 2),
         )
 
         valid_block_center = tf.expand_dims(valid_block_center, 0)
-        valid_block_center = tf.expand_dims(
-            valid_block_center, -1 if data_format == "channels_last" else 0
-        )
+        valid_block_center = tf.expand_dims(valid_block_center, -1 if data_format == "channels_last" else 0)
 
         randnoise = tf.random_uniform(net.shape, dtype=tf.float32)
         block_pattern = (
@@ -166,9 +149,7 @@ class DropBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                 data_format="NHWC" if data_format == "channels_last" else "NCHW",
             )
 
-        percent_ones = tf.cast(tf.reduce_sum((block_pattern)), tf.float32) / tf.cast(
-            tf.size(block_pattern), tf.float32
-        )
+        percent_ones = tf.cast(tf.reduce_sum((block_pattern)), tf.float32) / tf.cast(tf.size(block_pattern), tf.float32)
 
         net = net / tf.cast(percent_ones, net.dtype) * tf.cast(block_pattern, net.dtype)
         return net
@@ -187,27 +168,15 @@ class FixedPadding(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         pad_beg = pad_total // 2
         pad_end = pad_total - pad_beg
         if data_format == "channels_first":
-            padded_inputs = tf.pad(
-                inputs, [[0, 0], [0, 0], [pad_beg, pad_end], [pad_beg, pad_end]]
-            )
+            padded_inputs = tf.pad(inputs, [[0, 0], [0, 0], [pad_beg, pad_end], [pad_beg, pad_end]])
         else:
-            padded_inputs = tf.pad(
-                inputs, [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]]
-            )
+            padded_inputs = tf.pad(inputs, [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]])
 
         return padded_inputs
 
 
 class Conv2dFixedPadding(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
-    def __init__(
-        self,
-        filters,
-        kernel_size,
-        strides,
-        dilation=1,
-        data_format="channels_last",
-        **kwargs
-    ):
+    def __init__(self, filters, kernel_size, strides, dilation=1, data_format="channels_last", **kwargs):
         super(Conv2dFixedPadding, self).__init__(**kwargs)
         if strides > 1:
             self.fixed_padding = FixedPadding(kernel_size, data_format=data_format)
@@ -239,16 +208,7 @@ class IdentityLayer(tf.keras.layers.Layer):
 class SK_Conv2D(tf.keras.layers.Layer):  # pylint: disable=invalid-name
     """Selective kernel convolutional layer (https://arxiv.org/abs/1903.06586)."""
 
-    def __init__(
-        self,
-        filters,
-        strides,
-        sk_ratio,
-        min_dim=32,
-        data_format="channels_last",
-        groups=0,
-        **kwargs
-    ):
+    def __init__(self, filters, strides, sk_ratio, min_dim=32, data_format="channels_last", groups=0, **kwargs):
         super(SK_Conv2D, self).__init__(**kwargs)
         self.data_format = data_format
         self.filters = filters
@@ -263,9 +223,7 @@ class SK_Conv2D(tf.keras.layers.Layer):  # pylint: disable=invalid-name
             data_format=data_format,
             name="conv2d_fixed_padding",
         )
-        self.batch_norm_relu = BatchNormRelu(
-            data_format=data_format, groups=groups, name="bn_relu"
-        )
+        self.batch_norm_relu = BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu")
 
         # Mixing weights for two streams.
         mid_dim = max(int(filters * sk_ratio), min_dim)
@@ -278,9 +236,7 @@ class SK_Conv2D(tf.keras.layers.Layer):  # pylint: disable=invalid-name
             data_format=data_format,
             name="conv2d_0",
         )
-        self.batch_norm_relu_1 = BatchNormRelu(
-            data_format=data_format, groups=groups, name="bn_relu1"
-        )
+        self.batch_norm_relu_1 = BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu1")
         self.conv2d_1 = tf.keras.layers.Conv2D(
             filters=2 * filters,
             kernel_size=1,
@@ -301,9 +257,7 @@ class SK_Conv2D(tf.keras.layers.Layer):  # pylint: disable=invalid-name
         inputs = tf.stack(tf.split(inputs, num_or_size_splits=2, axis=channel_axis))
 
         # Mixing weights for two streams.
-        global_features = tf.reduce_mean(
-            tf.reduce_sum(inputs, axis=0), pooling_axes, keepdims=True
-        )
+        global_features = tf.reduce_mean(tf.reduce_sum(inputs, axis=0), pooling_axes, keepdims=True)
         global_features = self.conv2d_0(global_features, training=training)
         global_features = self.batch_norm_relu_1(global_features, training=training)
         mixing = self.conv2d_1(global_features, training=training)
@@ -406,9 +360,7 @@ class ResidualBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     )
                 )
             self.shortcut_layers.append(
-                BatchNormRelu(
-                    relu=False, data_format=data_format, groups=groups, name="bn_relu"
-                )
+                BatchNormRelu(relu=False, data_format=data_format, groups=groups, name="bn_relu")
             )
 
         self.conv2d_bn_layers.append(
@@ -420,9 +372,7 @@ class ResidualBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                 name="conv2d_fixed_padding",
             )
         )
-        self.conv2d_bn_layers.append(
-            BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu1")
-        )
+        self.conv2d_bn_layers.append(BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu1"))
         self.conv2d_bn_layers.append(
             Conv2dFixedPadding(
                 filters=filters,
@@ -443,9 +393,7 @@ class ResidualBlock(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         )
         self.se_ratio = se_ratio
         if se_ratio > 0:
-            self.se_layer = SE_Layer(
-                filters, se_ratio, data_format=data_format, name="se_layer"
-            )
+            self.se_layer = SE_Layer(filters, se_ratio, data_format=data_format, name="se_layer")
 
     def call(self, inputs, training):
         shortcut = inputs
@@ -485,9 +433,7 @@ class BottleneckBlock(tf.keras.layers.Layer):
             filters_out = 4 * filters
             if sk_ratio > 0:  # Use ResNet-D (https://arxiv.org/abs/1812.01187)
                 if strides > 1:
-                    self.projection_layers.append(
-                        FixedPadding(2, data_format, name="proj_fixed_padding")
-                    )
+                    self.projection_layers.append(FixedPadding(2, data_format, name="proj_fixed_padding"))
                 self.projection_layers.append(
                     tf.keras.layers.AveragePooling2D(
                         pool_size=2,
@@ -542,9 +488,7 @@ class BottleneckBlock(tf.keras.layers.Layer):
                 name="conv2d_fixed_padding",
             )
         )
-        self.conv_relu_dropblock_layers.append(
-            BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu")
-        )
+        self.conv_relu_dropblock_layers.append(BatchNormRelu(data_format=data_format, groups=groups, name="bn_relu"))
         self.conv_relu_dropblock_layers.append(
             DropBlock(
                 data_format=data_format,
@@ -724,13 +668,9 @@ class Resnet(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
             )
             self.initial_conv_relu_max_pool.append(IdentityLayer(name="initial_conv"))
             self.initial_conv_relu_max_pool.append(
-                BatchNormRelu(
-                    data_format=data_format, groups=groups, name="stem_bn_relu"
-                )
+                BatchNormRelu(data_format=data_format, groups=groups, name="stem_bn_relu")
             )
-            self.initial_conv_relu_max_pool.append(
-                IdentityLayer(name="initial_max_pool")
-            )
+            self.initial_conv_relu_max_pool.append(IdentityLayer(name="initial_max_pool"))
         else:
             if sk_ratio > 0 or self.variant == "c3":
                 # Use ResNet-D (https://arxiv.org/abs/1812.01187)
@@ -744,9 +684,7 @@ class Resnet(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     )
                 )
                 self.initial_conv_relu_max_pool.append(
-                    BatchNormRelu(
-                        data_format=data_format, groups=groups, name="stem_bn_relu1"
-                    )
+                    BatchNormRelu(data_format=data_format, groups=groups, name="stem_bn_relu1")
                 )
                 self.initial_conv_relu_max_pool.append(
                     Conv2dFixedPadding(
@@ -758,9 +696,7 @@ class Resnet(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     )
                 )
                 self.initial_conv_relu_max_pool.append(
-                    BatchNormRelu(
-                        data_format=data_format, groups=groups, name="stem_bn_relu2"
-                    )
+                    BatchNormRelu(data_format=data_format, groups=groups, name="stem_bn_relu2")
                 )
                 self.initial_conv_relu_max_pool.append(
                     Conv2dFixedPadding(
@@ -783,9 +719,7 @@ class Resnet(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                 )
             self.initial_conv_relu_max_pool.append(IdentityLayer(name="initial_conv"))
             self.initial_conv_relu_max_pool.append(
-                BatchNormRelu(
-                    data_format=data_format, groups=groups, name="stem_bn_relu"
-                )
+                BatchNormRelu(data_format=data_format, groups=groups, name="stem_bn_relu")
             )
 
             self.initial_conv_relu_max_pool.append(
@@ -797,9 +731,7 @@ class Resnet(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     name="stem_maxpooling",
                 )
             )
-            self.initial_conv_relu_max_pool.append(
-                IdentityLayer(name="initial_max_pool")
-            )
+            self.initial_conv_relu_max_pool.append(IdentityLayer(name="initial_max_pool"))
 
         self.block_groups = []
         self.block_groups.append(

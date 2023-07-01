@@ -85,9 +85,7 @@ def convert_to_feature(value, value_type=None):
         raise ValueError("Unknown value_type parameter - {}".format(value_type))
 
 
-def image_info_to_feature_dict(
-    height, width, filename, image_id, encoded_str, encoded_format
-):
+def image_info_to_feature_dict(height, width, filename, image_id, encoded_str, encoded_format):
     """Convert image information to a dict of features."""
 
     key = hashlib.sha256(encoded_str).hexdigest()
@@ -147,8 +145,7 @@ def write_tf_record_dataset(
     """
 
     writers = [
-        tf.io.TFRecordWriter(output_path + "-%05d-of-%05d.tfrecord" % (i, num_shards))
-        for i in range(num_shards)
+        tf.io.TFRecordWriter(output_path + "-%05d-of-%05d.tfrecord" % (i, num_shards)) for i in range(num_shards)
     ]
 
     total_num_annotations_skipped = 0
@@ -179,9 +176,7 @@ def write_tf_record_dataset(
     for writer in writers:
         writer.close()
 
-    logging.info(
-        "Finished writing, skipped %d annotations.", total_num_annotations_skipped
-    )
+    logging.info("Finished writing, skipped %d annotations.", total_num_annotations_skipped)
     return total_num_annotations_skipped
 
 

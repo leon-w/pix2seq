@@ -41,21 +41,15 @@ def get_config(config_str=None):
         imgsize = "256x256"
         msize = "128x128"
 
-    config = config_base.get_config(
-        f"{task_variant},{encoder_variant},{decoder_variant},{imgsize},{msize}"
-    )
+    config = config_base.get_config(f"{task_variant},{encoder_variant},{decoder_variant},{imgsize},{msize}")
 
     image_size = [int(x) for x in imgsize.split("x")]
     mask_size = [int(x) for x in msize.split("x")]
-    config.task.train_transforms = (
-        transform_configs.get_video_panoptic_segmentation_train_transforms(
-            image_size, mask_size, 1.0, 1.0, 0.0
-        )
+    config.task.train_transforms = transform_configs.get_video_panoptic_segmentation_train_transforms(
+        image_size, mask_size, 1.0, 1.0, 0.0
     )
-    config.task.eval_transforms = (
-        transform_configs.get_video_panoptic_segmentation_eval_transforms(
-            image_size, mask_size, 100
-        )
+    config.task.eval_transforms = transform_configs.get_video_panoptic_segmentation_eval_transforms(
+        image_size, mask_size, 100
     )
 
     config.model.name = "panoptic_diffusion"
@@ -128,9 +122,7 @@ def get_sweep(h):
                             h.sweep("config.task.train_transforms[0].max_scale", [1.0]),
                         ]
                     ),
-                    h.sweep(
-                        "config.task.train_transforms[3].color_jitter_strength", [0.0]
-                    ),
+                    h.sweep("config.task.train_transforms[3].color_jitter_strength", [0.0]),
                     h.sweep("config.task.object_order", ["shuffle"]),
                     h.sweep("config.task.frames_dropout", [0.2]),
                 ]

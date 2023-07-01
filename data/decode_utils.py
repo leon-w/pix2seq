@@ -47,9 +47,7 @@ def get_feature_map_for_instance_segmentation():
             value_key="image/object/segmentation_v",
             dtype=tf.float32,
             partitions=[
-                tf.io.RaggedFeature.RowSplits(
-                    "image/object/segmentation_sep"
-                )  # pytype: disable=attribute-error
+                tf.io.RaggedFeature.RowSplits("image/object/segmentation_sep")  # pytype: disable=attribute-error
             ],
         ),
     }
@@ -60,11 +58,7 @@ def get_feature_map_for_keypoint_detection():
         "image/object/keypoints": tf.io.RaggedFeature(
             value_key="image/object/keypoints_v",
             dtype=tf.float32,
-            partitions=[
-                tf.io.RaggedFeature.RowSplits(
-                    "image/object/keypoints_sep"
-                )  # pytype: disable=attribute-error
-            ],
+            partitions=[tf.io.RaggedFeature.RowSplits("image/object/keypoints_sep")],  # pytype: disable=attribute-error
         ),
         "image/object/num_keypoints": tf.io.VarLenFeature(tf.int64),
     }

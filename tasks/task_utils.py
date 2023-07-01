@@ -35,9 +35,7 @@ def get_category_names(category_names_path: Optional[str]) -> Dict[int, Dict[str
       Dictionary with the format {1: {"name": "Person"}, ...}
     """
     if not category_names_path:
-        logging.info(
-            "category_names_path not specified, default category names will be used"
-        )
+        logging.info("category_names_path not specified, default category names will be used")
         return {i: {"name": str(i)} for i in range(10000)}
     logging.info("Loading category names from %s", category_names_path)
     category_names = {}
@@ -47,9 +45,7 @@ def get_category_names(category_names_path: Optional[str]) -> Dict[int, Dict[str
     return category_names
 
 
-def build_instance_prompt_seq(
-    task_vocab_id: int, bbox, label, quantization_bins, coord_vocab_shift
-):
+def build_instance_prompt_seq(task_vocab_id: int, bbox, label, quantization_bins, coord_vocab_shift):
     """ "Build prompt seq for instance tasks like instance segmentation, keypoints.
 
     Args:
@@ -75,9 +71,7 @@ def build_instance_prompt_seq(
     return prompt_seq
 
 
-def build_instance_response_seq_from_points(
-    points, label, quantization_bins, coord_vocab_shift
-):
+def build_instance_response_seq_from_points(points, label, quantization_bins, coord_vocab_shift):
     """ "Build target seq for instance tasks like instance segmentation, keypoints.
 
     Args:
@@ -92,17 +86,13 @@ def build_instance_response_seq_from_points(
     """
     quantized_points = utils.quantize(points, quantization_bins)
     quantized_points = quantized_points + coord_vocab_shift
-    response_seq = utils.replace_reserved_tokens(
-        quantized_points, points, vocab.FLOAT_TO_TOKEN
-    )
+    response_seq = utils.replace_reserved_tokens(quantized_points, points, vocab.FLOAT_TO_TOKEN)
     is_padding = tf.expand_dims(tf.equal(label, 0), -1)
     response_seq = tf.where(is_padding, tf.zeros_like(response_seq), response_seq)
     return response_seq
 
 
-def build_prompt_seq_from_task_id(
-    task_vocab_id: int, response_seq=None, prompt_shape=None
-):
+def build_prompt_seq_from_task_id(task_vocab_id: int, response_seq=None, prompt_shape=None):
     """ "Build prompt seq just using task id.
 
     Args:
@@ -116,14 +106,10 @@ def build_prompt_seq_from_task_id(
     """
     task_id = tf.constant(task_vocab_id)
     if response_seq is not None:
-        prompt_seq = tf.zeros_like(response_seq[..., :1]) + tf.cast(
-            task_id, response_seq.dtype
-        )
+        prompt_seq = tf.zeros_like(response_seq[..., :1]) + tf.cast(task_id, response_seq.dtype)
     if prompt_shape is not None:
         assert response_seq is None, "double specification"
-        prompt_seq = tf.zeros(prompt_shape, dtype=tf.int64) + tf.cast(
-            task_id, dtype=tf.int64
-        )
+        prompt_seq = tf.zeros(prompt_shape, dtype=tf.int64) + tf.cast(task_id, dtype=tf.int64)
     return prompt_seq
 
 
@@ -200,9 +186,7 @@ def compute_weighted_scores(bbox_scores, pred_seq, logits, points_score_weight):
     # Set 0 weight for padding tokens.
     token_weight = tf.where(tf.equal(pred_seq, vocab.PADDING_TOKEN), 0.0, 1.0)
     likelihoods = tf.gather(probs, pred_seq, batch_dims=pred_seq.shape.rank)
-    points_score = tf.reduce_sum(likelihoods * token_weight, axis=-1) / tf.reduce_sum(
-        token_weight, axis=-1
-    )
+    points_score = tf.reduce_sum(likelihoods * token_weight, axis=-1) / tf.reduce_sum(token_weight, axis=-1)
     num_instances_in_batch = bbox_scores.shape[0]
     num_samples = points_score.shape[0] // num_instances_in_batch
     points_score = tf.reshape(points_score, [num_instances_in_batch, num_samples])
@@ -229,11 +213,7 @@ def integer_map_to_bits(integer_map, n_bits_label, b_scale, num_channels=2):
     """
     bits = []
     for i in range(num_channels):
-        bits.append(
-            utils.int2bits(
-                integer_map[..., i], n_bits_label // num_channels, tf.float32
-            )
-        )
+        bits.append(utils.int2bits(integer_map[..., i], n_bits_label // num_channels, tf.float32))
     bits = tf.concat(bits, -1)
     bits = (bits * 2 - 1) * b_scale
     return bits

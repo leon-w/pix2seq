@@ -41,14 +41,10 @@ class TaskObjectDetection(task_lib.Task):
 
         if config.task.get("max_seq_len", "auto") == "auto":
             self.config.task.max_seq_len = config.task.max_instances_per_image * 5
-        self._category_names = task_utils.get_category_names(
-            config.dataset.get("category_names_path")
-        )
+        self._category_names = task_utils.get_category_names(config.dataset.get("category_names_path"))
         metric_config = config.task.get("metric")
         if metric_config and metric_config.get("name"):
-            self._coco_metrics = metric_registry.MetricRegistry.lookup(
-                metric_config.name
-            )(config)
+            self._coco_metrics = metric_registry.MetricRegistry.lookup(metric_config.name)(config)
         else:
             self._coco_metrics = None
         if self.config.task.get("eval_outputs_json_path", None):
@@ -111,9 +107,7 @@ class TaskObjectDetection(task_lib.Task):
             class_label_corruption=config.class_label_corruption,
         )
         response_seq, response_seq_cm, token_weights = ret
-        prompt_seq = task_utils.build_prompt_seq_from_task_id(
-            self.task_vocab_id, response_seq
-        )  # (bsz, 1)
+        prompt_seq = task_utils.build_prompt_seq_from_task_id(self.task_vocab_id, response_seq)  # (bsz, 1)
         input_seq = tf.concat([prompt_seq, response_seq_cm], -1)
         target_seq = tf.concat([prompt_seq, response_seq], -1)
 
@@ -141,9 +135,7 @@ class TaskObjectDetection(task_lib.Task):
         config = self.config.task
         image, _, examples = preprocessed_outputs  # response_seq unused by default
         bsz = tf.shape(image)[0]
-        prompt_seq = task_utils.build_prompt_seq_from_task_id(
-            self.task_vocab_id, prompt_shape=(bsz, 1)
-        )
+        prompt_seq = task_utils.build_prompt_seq_from_task_id(self.task_vocab_id, prompt_shape=(bsz, 1))
         pred_seq, logits, _ = model.infer(
             image,
             prompt_seq,
@@ -198,9 +190,7 @@ class TaskObjectDetection(task_lib.Task):
             scale = utils.tf_float32(image_size)
         else:
             # scale points to original image size during eval.
-            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(
-                unpadded_image_size
-            )
+            scale = utils.tf_float32(image_size)[tf.newaxis, :] / utils.tf_float32(unpadded_image_size)
             scale = scale * utils.tf_float32(orig_image_size)
             scale = tf.expand_dims(scale, 1)
         pred_bboxes_rescaled = utils.scale_points(pred_bboxes, scale)
@@ -282,9 +272,7 @@ class TaskObjectDetection(task_lib.Task):
 
         # Log/accumulate metrics.
         if self._coco_metrics:
-            self._coco_metrics.record_prediction(
-                image_ids, pred_bboxes_rescaled, pred_classes, scores
-            )
+            self._coco_metrics.record_prediction(image_ids, pred_bboxes_rescaled, pred_classes, scores)
             if not self._coco_metrics.gt_annotations_path:
                 self._coco_metrics.record_groundtruth(
                     image_ids,
@@ -307,11 +295,7 @@ class TaskObjectDetection(task_lib.Task):
             vis_list = [pred_tuple]  # exclude gt for simplicity.
             ret_images = {}
             for bboxes_, classes_, scores_, tag_ in vis_list:
-                tag = (
-                    summary_tag
-                    + "/"
-                    + task_utils.join_if_not_none([tag_, "bbox", eval_step], "_")
-                )
+                tag = summary_tag + "/" + task_utils.join_if_not_none([tag_, "bbox", eval_step], "_")
                 bboxes_, classes_, scores_ = (
                     bboxes_.numpy(),
                     classes_.numpy(),
@@ -350,9 +334,7 @@ class TaskObjectDetection(task_lib.Task):
             with tf.name_scope(eval_tag):
                 self._log_metrics(metrics, step)
             summary_writer.flush()
-        result_json_path = os.path.join(
-            self.config.model_dir, eval_tag + "cocoeval.pkl"
-        )
+        result_json_path = os.path.join(self.config.model_dir, eval_tag + "cocoeval.pkl")
         if self._coco_metrics:
             tosave = {
                 "dataset": self._coco_metrics.dataset,
@@ -473,9 +455,7 @@ def build_response_seq_from_bbox(
     fake_cls = vocab.FAKE_CLASS_TOKEN + tf.zeros_like(new_label)
     rand_n_fake_cls = tf.where(tf.random.uniform(lb_shape) > 0.5, rand_cls, fake_cls)
     real_n_fake_cls = tf.where(tf.random.uniform(lb_shape) > 0.5, new_label, fake_cls)
-    real_n_rand_n_fake_cls = tf.where(
-        tf.random.uniform(lb_shape) > 0.5, new_label, rand_n_fake_cls
-    )
+    real_n_rand_n_fake_cls = tf.where(tf.random.uniform(lb_shape) > 0.5, new_label, rand_n_fake_cls)
     label_mapping = {
         "none": new_label,
         "rand_cls": rand_cls,
@@ -498,14 +478,10 @@ def build_response_seq_from_bbox(
     return response_seq, response_seq_class_m, token_weights
 
 
-def build_annotations(
-    image_ids, category_ids, boxes, scores, counter
-) -> List[Dict[str, Any]]:
+def build_annotations(image_ids, category_ids, boxes, scores, counter) -> List[Dict[str, Any]]:
     """Builds annotations."""
     annotations = []
-    for image_id, category_id_list, box_list, score_list in zip(
-        image_ids, category_ids, boxes, scores
-    ):
+    for image_id, category_id_list, box_list, score_list in zip(image_ids, category_ids, boxes, scores):
         for category_id, box, score in zip(category_id_list, box_list, score_list):
             category_id = int(category_id)
             if category_id:

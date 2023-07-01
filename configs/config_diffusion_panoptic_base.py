@@ -251,13 +251,9 @@ def get_config(config_str=None):
     # on-the-fly gt gathering for metric computation
     # config.dataset.coco_annotations_dir_for_metrics = ''
 
-    config.task.train_transforms = (
-        transform_configs.get_panoptic_segmentation_train_transforms(
-            image_size, msize, 1.0, 1.0, 0.0
-        )
+    config.task.train_transforms = transform_configs.get_panoptic_segmentation_train_transforms(
+        image_size, msize, 1.0, 1.0, 0.0
     )
-    config.task.eval_transforms = (
-        transform_configs.get_panoptic_segmentation_eval_transforms(image_size)
-    )
+    config.task.eval_transforms = transform_configs.get_panoptic_segmentation_eval_transforms(image_size)
 
     return config

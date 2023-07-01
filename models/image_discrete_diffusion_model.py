@@ -125,9 +125,7 @@ class Model(tf.keras.models.Model):
                 cond_dropout = config.get("cond_dropout", 0.0)
                 labels_w = 1.0
                 if training and cond_dropout > 0:
-                    labels_w = (
-                        tf.random.uniform([tf.shape(labels)[0], 1]) > cond_dropout
-                    )
+                    labels_w = tf.random.uniform([tf.shape(labels)[0], 1]) > cond_dropout
                     labels_w = tf.cast(labels_w, tf.float32)
                 if drop_label:
                     labels_w = 0.0
@@ -156,9 +154,7 @@ class Model(tf.keras.models.Model):
         if self.config.normalize_noisy_input:
             if isinstance(x, tuple) or isinstance(x, list):
                 x = list(x)
-                x[0] /= tf.math.reduce_std(
-                    x[0], list(range(1, x[0].shape.ndims)), keepdims=True
-                )
+                x[0] /= tf.math.reduce_std(x[0], list(range(1, x[0].shape.ndims)), keepdims=True)
             else:
                 x /= tf.math.reduce_std(x, list(range(1, x.shape.ndims)), keepdims=True)
         x = denoiser(x, gamma, cond, training=training)
@@ -168,28 +164,18 @@ class Model(tf.keras.models.Model):
             if isinstance(x, tuple) or isinstance(x, list):
                 x = list(x)
                 x[0] = unfold_rgb(x[0])
-                x[0] = (
-                    x[0]
-                    if for_loss
-                    else (fold_rgb(tf.nn.softmax(x[0]) * 2 - 1)) * config.b_scale
-                )
+                x[0] = x[0] if for_loss else (fold_rgb(tf.nn.softmax(x[0]) * 2 - 1)) * config.b_scale
                 x = tuple(x)
             else:
                 x = unfold_rgb(x)
-                x = (
-                    x
-                    if for_loss
-                    else (fold_rgb(tf.nn.softmax(x)) * 2 - 1) * config.b_scale
-                )
+                x = x if for_loss else (fold_rgb(tf.nn.softmax(x)) * 2 - 1) * config.b_scale
         return x
 
     def sample(self, num_samples=100, iterations=100, method="ddim", **kwargs):
         config = self.config
         samples_shape = [num_samples, self.image_size, self.image_size, self.x_channels]
         if config.conditional == "class":
-            labels = tf.random.uniform(
-                [num_samples], 0, self.num_classes, dtype=tf.int32
-            )
+            labels = tf.random.uniform([num_samples], 0, self.num_classes, dtype=tf.int32)
             labels = tf.one_hot(labels, self.num_classes)
         else:
             labels = None
@@ -211,9 +197,7 @@ class Model(tf.keras.models.Model):
     def noise_denoise(self, images, labels, time_step=None, training=True):
         config = self.config
         images = rgb2bit(images, config.b_type, config.b_scale, self.x_channels)
-        images_noised, noise, _, gamma = self.scheduler.add_noise(
-            images, time_step=time_step
-        )
+        images_noised, noise, _, gamma = self.scheduler.add_noise(images, time_step=time_step)
         if config.self_cond != "none":
             sc_rate = config.get("self_cond_rate", 0.5)
             self_cond_by_masking = config.get("self_cond_by_masking", False)
@@ -222,9 +206,7 @@ class Model(tf.keras.models.Model):
                 num_sc_examples = tf.shape(images)[0]
             else:
                 sc_drop_rate = 0.0
-                num_sc_examples = tf.cast(
-                    tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32
-                )
+                num_sc_examples = tf.cast(tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32)
             cond_denoise = self.get_cond_denoise(labels[:num_sc_examples])
             if self.hidden_shapes is None:  # data self-cond, return is a tensor.
                 denoise_inputs = diffusion_utils.add_self_cond_estimate(
@@ -256,9 +238,7 @@ class Model(tf.keras.models.Model):
             denoise_out = denoise_out[0]
         return images, noise, images_noised, denoise_out
 
-    def compute_loss(
-        self, images: tf.Tensor, noise: tf.Tensor, denoise_out: tf.Tensor
-    ) -> tf.Tensor:
+    def compute_loss(self, images: tf.Tensor, noise: tf.Tensor, denoise_out: tf.Tensor) -> tf.Tensor:
         config = self.config
         if config.pred_type == "x":
             loss = tf.reduce_mean(tf.square(images - denoise_out))
@@ -281,9 +261,7 @@ class Model(tf.keras.models.Model):
     ) -> tf.Tensor:  # pylint: disable=signature-mismatch
         """Model inference call."""
         with tf.name_scope(""):  # for other functions to have the same name scope
-            images, noise, _, denoise_out = self.noise_denoise(
-                images, labels, None, training
-            )
+            images, noise, _, denoise_out = self.noise_denoise(images, labels, None, training)
             return self.compute_loss(images, noise, denoise_out)
 
 
@@ -905,9 +883,7 @@ def get_x_channels(b_type):
     return x_channels
 
 
-def rgb2bit(
-    images, b_type, b_scale, x_channels
-):  # pylint: disable=missing-function-docstring
+def rgb2bit(images, b_type, b_scale, x_channels):  # pylint: disable=missing-function-docstring
     if b_type in ["uint8", "uint8_s", "gray"]:
         images = tf.image.convert_image_dtype(images, dtype=tf.uint8)
         if b_type in ["uint8_s", "gray"]:
@@ -933,15 +909,11 @@ def bit2rgb(samples, b_type):  # pylint: disable=missing-function-docstring
         samples = utils.bits2int(samples > 0, tf.int32)
         if b_type in ["uint8_s", "gray"]:
             samples = tf.gather(get_perm_inv_perm(b_type)[1], samples)
-        return tf.image.convert_image_dtype(
-            tf.cast(samples, tf.uint8), dtype=tf.float32
-        )
+        return tf.image.convert_image_dtype(tf.cast(samples, tf.uint8), dtype=tf.float32)
     elif b_type == "oneh":
         samples = unfold_rgb(samples)
         samples = tf.argmax(samples, -1)
-        return tf.image.convert_image_dtype(
-            tf.cast(samples, tf.uint8), dtype=tf.float32
-        )
+        return tf.image.convert_image_dtype(tf.cast(samples, tf.uint8), dtype=tf.float32)
     else:
         raise ValueError(f"Unknown b_type {b_type}")
 

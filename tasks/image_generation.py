@@ -40,9 +40,7 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
 
         self._write_images_to_file = config.eval.get("write_images_to_file", False)
         if self._write_images_to_file:
-            self._tfrecord_dir = os.path.join(
-                config.model_dir, "images", config.eval.tag
-            )
+            self._tfrecord_dir = os.path.join(config.model_dir, "images", config.eval.tag)
             if not tf.io.gfile.exists(self._tfrecord_dir):
                 tf.io.gfile.makedirs(self._tfrecord_dir)
             self._tfrecord_writer = None
@@ -73,18 +71,14 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
                     training=training,
                 )
                 if examples["label"].shape.ndims == 0:
-                    label_ = tf.one_hot(
-                        examples["label"], self.config.dataset.num_classes
-                    )
+                    label_ = tf.one_hot(examples["label"], self.config.dataset.num_classes)
                 else:
                     label_ = examples["label"]
                 examples_list.append({"image": image_, "label": label_})
             examples = utils.merge_list_of_dict(examples_list)
             return examples
 
-        dataset = dataset.map(
-            _preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
+        dataset = dataset.map(_preprocess_single_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset
 
     def preprocess_batched(self, examples, training):
@@ -153,7 +147,10 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
         (logits_real, pool3_real), (
             logits_gen,
             pool3_gen,
-        ) = (None, None), (None, None) # self._tfgan_evaluator.get_inception_stats([data_real, data_gen])
+        ) = (None, None), (
+            None,
+            None,
+        )  # self._tfgan_evaluator.get_inception_stats([data_real, data_gen])
 
         logging.info("postprocess_tpu done.")
         return (images, samples, logits_real, pool3_real, logits_gen, pool3_gen)
@@ -185,9 +182,7 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
         images, samples, logits_real, pool3_real, logits_gen, pool3_gen = outputs
 
         # FID update.
-        self._tfgan_evaluator.update_stats(
-            logits_real, pool3_real, logits_gen, pool3_gen
-        )
+        self._tfgan_evaluator.update_stats(logits_real, pool3_real, logits_gen, pool3_gen)
 
         # Image summary.
         bsz, h, w, c = utils.shape_as_list(samples)
@@ -198,9 +193,7 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
         vis_samples = tf.transpose(vis_samples, [0, 2, 1, 3, 4])
         images_sum = tf.reshape(vis_samples, [1, a * h, b * w, c])
         if eval_step < 2:
-            tf.summary.image(
-                f"{summary_tag}/samples_{eval_step}", images_sum, step=train_step
-            )
+            tf.summary.image(f"{summary_tag}/samples_{eval_step}", images_sum, step=train_step)
 
         # Write gt and samples to tfrecord.
         if self._write_images_to_file:
@@ -253,14 +246,10 @@ def create_tf_example(ref, hyp):
         "hyp": tf.train.Feature(bytes_list=tf.train.BytesList(value=[hyp_bytes])),
         "ref": tf.train.Feature(bytes_list=tf.train.BytesList(value=[ref_bytes])),
     }
-    return tf.train.Example(
-        features=tf.train.Features(feature=feature)
-    ).SerializeToString()
+    return tf.train.Example(features=tf.train.Features(feature=feature)).SerializeToString()
 
 
-def preprocess_image(
-    image, height, width, cropping="none", flipping="none", training=False
-):
+def preprocess_image(image, height, width, cropping="none", flipping="none", training=False):
     """Preprocesses the given image.
 
     Args:

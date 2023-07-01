@@ -159,9 +159,7 @@ class Model(tf.keras.models.Model):
         if self.config.normalize_noisy_input:
             if isinstance(x, tuple) or isinstance(x, list):
                 x = list(x)
-                x[0] /= tf.math.reduce_std(
-                    x[0], list(range(1, x[0].shape.ndims)), keepdims=True
-                )
+                x[0] /= tf.math.reduce_std(x[0], list(range(1, x[0].shape.ndims)), keepdims=True)
             else:
                 x /= tf.math.reduce_std(x, list(range(1, x.shape.ndims)), keepdims=True)
         x = denoiser(x, gamma, cond, training=training)
@@ -171,9 +169,7 @@ class Model(tf.keras.models.Model):
         config = self.config
         samples_shape = [num_samples, *self.sample_shape]
         if config.conditional == "class":
-            labels = tf.random.uniform(
-                [num_samples], 0, self.num_classes, dtype=tf.int32
-            )
+            labels = tf.random.uniform([num_samples], 0, self.num_classes, dtype=tf.int32)
             labels = tf.one_hot(labels, self.num_classes)
         elif config.conditional == "text":
             labels = kwargs["labels"]
@@ -196,9 +192,7 @@ class Model(tf.keras.models.Model):
 
         if "images" in kwargs and "labels" in kwargs:
             images = self.images2tokens(kwargs["images"])
-            images, noise, _, pred_dict = self.noise_denoise(
-                images, kwargs["labels"], time_step=None, training=False
-            )
+            images, noise, _, pred_dict = self.noise_denoise(images, kwargs["labels"], time_step=None, training=False)
             loss = self.compute_loss(images, noise, pred_dict)
         else:
             loss = tf.constant(-1.0, dtype=tf.float32)
@@ -207,9 +201,7 @@ class Model(tf.keras.models.Model):
     def noise_denoise(self, images, labels, time_step=None, training=True):
         config = self.config
         images = (images * 2.0 - 1.0) * config.b_scale  # convert 0,1 -> -s,s
-        images_noised, noise, _, gamma = self.scheduler.add_noise(
-            images, time_step=time_step
-        )
+        images_noised, noise, _, gamma = self.scheduler.add_noise(images, time_step=time_step)
         if config.self_cond != "none":
             sc_rate = config.get("self_cond_rate", 0.5)
             self_cond_by_masking = config.get("self_cond_by_masking", False)
@@ -218,9 +210,7 @@ class Model(tf.keras.models.Model):
                 num_sc_examples = tf.shape(images)[0]
             else:
                 sc_drop_rate = 0.0
-                num_sc_examples = tf.cast(
-                    tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32
-                )
+                num_sc_examples = tf.cast(tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32)
             cond_denoise = self.get_cond_denoise(labels[:num_sc_examples])
             if self.hidden_shapes is None:  # data self-cond, return is a tensor.
                 denoise_inputs = diffusion_utils.add_self_cond_estimate(
@@ -261,15 +251,11 @@ class Model(tf.keras.models.Model):
         )
         return images, noise, images_noised, pred_dict
 
-    def compute_loss(
-        self, images: tf.Tensor, noise: tf.Tensor, pred_dict: dict[str, tf.Tensor]
-    ) -> tf.Tensor:
+    def compute_loss(self, images: tf.Tensor, noise: tf.Tensor, pred_dict: dict[str, tf.Tensor]) -> tf.Tensor:
         config = self.config
         loss_type = config.get("loss_type", config.pred_type)
         if loss_type == "x":
-            loss = tf.reduce_mean(
-                tf.square((images - pred_dict["data_pred"]) / config.b_scale)
-            )
+            loss = tf.reduce_mean(tf.square((images - pred_dict["data_pred"]) / config.b_scale))
         elif loss_type == "eps":
             loss = tf.reduce_mean(tf.square(noise - pred_dict["noise_pred"]))
         else:
@@ -281,9 +267,7 @@ class Model(tf.keras.models.Model):
     ) -> tf.Tensor:  # pylint: disable=signature-mismatch
         """Model inference call."""
         with tf.name_scope(""):  # for other functions to have the same name scope
-            images, noise, _, pred_dict = self.noise_denoise(
-                images, labels, None, training
-            )
+            images, noise, _, pred_dict = self.noise_denoise(images, labels, None, training)
             return self.compute_loss(images, noise, pred_dict)
 
 
@@ -414,9 +398,7 @@ class ModelT(Model):
         """Model inference call."""
         with tf.name_scope(""):  # for other functions to have the same name scope
             images = self.images2tokens(images)
-            images, noise, _, pred_dict = self.noise_denoise(
-                images, labels, None, training
-            )
+            images, noise, _, pred_dict = self.noise_denoise(images, labels, None, training)
             return self.compute_loss(images, noise, pred_dict)
 
 

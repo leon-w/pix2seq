@@ -378,9 +378,7 @@ def draw_bounding_box_on_image(
         text_bottom -= text_height - 2 * margin
 
 
-def draw_bounding_boxes_on_image_array(
-    image, boxes, color="red", thickness=4, display_str_list_list=()
-):
+def draw_bounding_boxes_on_image_array(image, boxes, color="red", thickness=4, display_str_list_list=()):
     """Draws bounding boxes on image (numpy array).
 
     Args:
@@ -397,15 +395,11 @@ def draw_bounding_boxes_on_image_array(
       ValueError: if boxes is not a [N, 4] array
     """
     image_pil = Image.fromarray(image)
-    draw_bounding_boxes_on_image(
-        image_pil, boxes, color, thickness, display_str_list_list
-    )
+    draw_bounding_boxes_on_image(image_pil, boxes, color, thickness, display_str_list_list)
     np.copyto(image, np.array(image_pil))
 
 
-def draw_bounding_boxes_on_image(
-    image, boxes, color="red", thickness=4, display_str_list_list=()
-):
+def draw_bounding_boxes_on_image(image, boxes, color="red", thickness=4, display_str_list_list=()):
     """Draws bounding boxes on image.
 
     Args:
@@ -443,11 +437,7 @@ def draw_bounding_boxes_on_image(
 
 
 def create_visualization_fn(
-    category_index,
-    include_masks=False,
-    include_keypoints=False,
-    include_track_ids=False,
-    **kwargs
+    category_index, include_masks=False, include_keypoints=False, include_track_ids=False, **kwargs
 ):
     """Constructs a visualization function that can be wrapped in a py_func.
 
@@ -645,15 +635,11 @@ def draw_bounding_boxes_on_image_tensors(
         true_shape = image_and_detections[0]
         original_shape = image_and_detections[1]
         if true_image_shape is not None:
-            image = shape_utils.pad_or_clip_nd(
-                image_and_detections[2], [true_shape[0], true_shape[1], 3]
-            )
+            image = shape_utils.pad_or_clip_nd(image_and_detections[2], [true_shape[0], true_shape[1], 3])
         if original_image_spatial_shape is not None:
             image_and_detections[2] = _resize_original_image(image, original_shape)
 
-        image_with_boxes = tf.py_func(
-            visualize_boxes_fn, image_and_detections[2:], tf.uint8
-        )
+        image_with_boxes = tf.py_func(visualize_boxes_fn, image_and_detections[2:], tf.uint8)
         return image_with_boxes
 
     images = tf.map_fn(draw_boxes, elems, dtype=tf.uint8, back_prop=False)
@@ -700,26 +686,19 @@ def draw_side_by_side_evaluation_image(
     # Add the batch dimension if the eval_dict is for single example.
     if len(eval_dict[detection_fields.detection_classes].shape) == 1:
         for key in eval_dict:
-            if (
-                key != input_data_fields.original_image
-                and key != input_data_fields.image_additional_channels
-            ):
+            if key != input_data_fields.original_image and key != input_data_fields.image_additional_channels:
                 eval_dict[key] = tf.expand_dims(eval_dict[key], 0)
 
     for indx in range(eval_dict[input_data_fields.original_image].shape[0]):
         instance_masks = None
         if detection_fields.detection_masks in eval_dict:
             instance_masks = tf.cast(
-                tf.expand_dims(
-                    eval_dict[detection_fields.detection_masks][indx], axis=0
-                ),
+                tf.expand_dims(eval_dict[detection_fields.detection_masks][indx], axis=0),
                 tf.uint8,
             )
         keypoints = None
         if detection_fields.detection_keypoints in eval_dict:
-            keypoints = tf.expand_dims(
-                eval_dict[detection_fields.detection_keypoints][indx], axis=0
-            )
+            keypoints = tf.expand_dims(eval_dict[detection_fields.detection_keypoints][indx], axis=0)
         groundtruth_instance_masks = None
         if input_data_fields.groundtruth_instance_masks in eval_dict:
             groundtruth_instance_masks = tf.cast(
@@ -739,9 +718,7 @@ def draw_side_by_side_evaluation_image(
             original_image_spatial_shape=tf.expand_dims(
                 eval_dict[input_data_fields.original_image_spatial_shape][indx], axis=0
             ),
-            true_image_shape=tf.expand_dims(
-                eval_dict[input_data_fields.true_image_shape][indx], axis=0
-            ),
+            true_image_shape=tf.expand_dims(eval_dict[input_data_fields.true_image_shape][indx], axis=0),
             instance_masks=instance_masks,
             keypoints=keypoints,
             keypoint_edges=keypoint_edges,
@@ -751,12 +728,8 @@ def draw_side_by_side_evaluation_image(
         )
         images_with_groundtruth = draw_bounding_boxes_on_image_tensors(
             tf.expand_dims(eval_dict[input_data_fields.original_image][indx], axis=0),
-            tf.expand_dims(
-                eval_dict[input_data_fields.groundtruth_boxes][indx], axis=0
-            ),
-            tf.expand_dims(
-                eval_dict[input_data_fields.groundtruth_classes][indx], axis=0
-            ),
+            tf.expand_dims(eval_dict[input_data_fields.groundtruth_boxes][indx], axis=0),
+            tf.expand_dims(eval_dict[input_data_fields.groundtruth_classes][indx], axis=0),
             tf.expand_dims(
                 tf.ones_like(
                     eval_dict[input_data_fields.groundtruth_classes][indx],
@@ -768,9 +741,7 @@ def draw_side_by_side_evaluation_image(
             original_image_spatial_shape=tf.expand_dims(
                 eval_dict[input_data_fields.original_image_spatial_shape][indx], axis=0
             ),
-            true_image_shape=tf.expand_dims(
-                eval_dict[input_data_fields.true_image_shape][indx], axis=0
-            ),
+            true_image_shape=tf.expand_dims(eval_dict[input_data_fields.true_image_shape][indx], axis=0),
             instance_masks=groundtruth_instance_masks,
             keypoints=None,
             keypoint_edges=None,
@@ -778,45 +749,35 @@ def draw_side_by_side_evaluation_image(
             min_score_thresh=0.0,
             use_normalized_coordinates=use_normalized_coordinates,
         )
-        images_to_visualize = tf.concat(
-            [images_with_detections, images_with_groundtruth], axis=2
-        )
+        images_to_visualize = tf.concat([images_with_detections, images_with_groundtruth], axis=2)
 
         if input_data_fields.image_additional_channels in eval_dict:
-            images_with_additional_channels_groundtruth = (
-                draw_bounding_boxes_on_image_tensors(
-                    tf.expand_dims(
-                        eval_dict[input_data_fields.image_additional_channels][indx],
-                        axis=0,
+            images_with_additional_channels_groundtruth = draw_bounding_boxes_on_image_tensors(
+                tf.expand_dims(
+                    eval_dict[input_data_fields.image_additional_channels][indx],
+                    axis=0,
+                ),
+                tf.expand_dims(eval_dict[input_data_fields.groundtruth_boxes][indx], axis=0),
+                tf.expand_dims(eval_dict[input_data_fields.groundtruth_classes][indx], axis=0),
+                tf.expand_dims(
+                    tf.ones_like(
+                        eval_dict[input_data_fields.groundtruth_classes][indx],
+                        dtype=tf.float32,
                     ),
-                    tf.expand_dims(
-                        eval_dict[input_data_fields.groundtruth_boxes][indx], axis=0
-                    ),
-                    tf.expand_dims(
-                        eval_dict[input_data_fields.groundtruth_classes][indx], axis=0
-                    ),
-                    tf.expand_dims(
-                        tf.ones_like(
-                            eval_dict[input_data_fields.groundtruth_classes][indx],
-                            dtype=tf.float32,
-                        ),
-                        axis=0,
-                    ),
-                    category_index,
-                    original_image_spatial_shape=tf.expand_dims(
-                        eval_dict[input_data_fields.original_image_spatial_shape][indx],
-                        axis=0,
-                    ),
-                    true_image_shape=tf.expand_dims(
-                        eval_dict[input_data_fields.true_image_shape][indx], axis=0
-                    ),
-                    instance_masks=groundtruth_instance_masks,
-                    keypoints=None,
-                    keypoint_edges=None,
-                    max_boxes_to_draw=None,
-                    min_score_thresh=0.0,
-                    use_normalized_coordinates=use_normalized_coordinates,
-                )
+                    axis=0,
+                ),
+                category_index,
+                original_image_spatial_shape=tf.expand_dims(
+                    eval_dict[input_data_fields.original_image_spatial_shape][indx],
+                    axis=0,
+                ),
+                true_image_shape=tf.expand_dims(eval_dict[input_data_fields.true_image_shape][indx], axis=0),
+                instance_masks=groundtruth_instance_masks,
+                keypoints=None,
+                keypoint_edges=None,
+                max_boxes_to_draw=None,
+                min_score_thresh=0.0,
+                use_normalized_coordinates=use_normalized_coordinates,
             )
             images_to_visualize = tf.concat(
                 [images_to_visualize, images_with_additional_channels_groundtruth],
@@ -924,9 +885,7 @@ def draw_keypoints_on_image(
                 keypoints_x[keypoint_end],
                 keypoints_y[keypoint_end],
             ]
-            draw.line(
-                edge_coordinates, fill=keypoint_edge_color, width=keypoint_edge_width
-            )
+            draw.line(edge_coordinates, fill=keypoint_edge_color, width=keypoint_edge_width)
 
 
 def draw_mask_on_image_array(image, mask, color="red", alpha=0.4):
@@ -950,15 +909,12 @@ def draw_mask_on_image_array(image, mask, color="red", alpha=0.4):
         raise ValueError("`mask` elements should be in [0, 1]")
     if image.shape[:2] != mask.shape:
         raise ValueError(
-            "The image has spatial dimensions %s but the mask has "
-            "dimensions %s" % (image.shape[:2], mask.shape)
+            "The image has spatial dimensions %s but the mask has " "dimensions %s" % (image.shape[:2], mask.shape)
         )
     rgb = ImageColor.getrgb(color)
     pil_image = Image.fromarray(image)
 
-    solid_color = np.expand_dims(np.ones_like(mask), axis=2) * np.reshape(
-        list(rgb), [1, 1, 3]
-    )
+    solid_color = np.expand_dims(np.ones_like(mask), axis=2) * np.reshape(list(rgb), [1, 1, 3])
     pil_solid_color = Image.fromarray(np.uint8(solid_color)).convert("RGBA")
     pil_mask = Image.fromarray(np.uint8(255.0 * alpha * mask)).convert("L")
     pil_image = Image.composite(pil_solid_color, pil_image, pil_mask)
@@ -1072,9 +1028,7 @@ def visualize_boxes_and_labels_on_image_array(
                     if not display_str:
                         display_str = "{}%".format(int(100 * scores[i]))
                     else:
-                        display_str = "{}: {}%".format(
-                            display_str, int(100 * scores[i])
-                        )
+                        display_str = "{}: {}%".format(display_str, int(100 * scores[i]))
                 if not skip_track_ids and track_ids is not None:
                     if not display_str:
                         display_str = "ID {}".format(track_ids[i])
@@ -1085,13 +1039,9 @@ def visualize_boxes_and_labels_on_image_array(
                     box_to_color_map[box] = "DarkOrange"
                 elif track_ids is not None:
                     prime_multipler = _get_multiplier_for_color_randomness()
-                    box_to_color_map[box] = STANDARD_COLORS[
-                        (prime_multipler * track_ids[i]) % len(STANDARD_COLORS)
-                    ]
+                    box_to_color_map[box] = STANDARD_COLORS[(prime_multipler * track_ids[i]) % len(STANDARD_COLORS)]
                 else:
-                    box_to_color_map[box] = STANDARD_COLORS[
-                        classes[i] % len(STANDARD_COLORS)
-                    ]
+                    box_to_color_map[box] = STANDARD_COLORS[classes[i] % len(STANDARD_COLORS)]
 
     # Draw all boxes onto image.
     for box, color in box_to_color_map.items():
@@ -1099,9 +1049,7 @@ def visualize_boxes_and_labels_on_image_array(
         if instance_masks is not None:
             draw_mask_on_image_array(image, box_to_instance_masks_map[box], color=color)
         if instance_boundaries is not None:
-            draw_mask_on_image_array(
-                image, box_to_instance_boundaries_map[box], color="red", alpha=1.0
-            )
+            draw_mask_on_image_array(image, box_to_instance_boundaries_map[box], color="red", alpha=1.0)
         draw_bounding_box_on_image_array(
             image,
             ymin,
@@ -1145,9 +1093,7 @@ def add_cdf_image_summary(values, name):
         normalized_values = values / np.sum(values)
         sorted_values = np.sort(normalized_values)
         cumulative_values = np.cumsum(sorted_values)
-        fraction_of_examples = (
-            np.arange(cumulative_values.size, dtype=np.float32) / cumulative_values.size
-        )
+        fraction_of_examples = np.arange(cumulative_values.size, dtype=np.float32) / cumulative_values.size
         fig = plt.figure(frameon=False)
         ax = fig.add_subplot(1, 1, 1)
         ax.plot(fraction_of_examples, cumulative_values)
@@ -1155,9 +1101,7 @@ def add_cdf_image_summary(values, name):
         ax.set_xlabel("fraction of examples")
         fig.canvas.draw()
         width, height = fig.get_size_inches() * fig.get_dpi()
-        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8").reshape(
-            1, int(height), int(width), 3
-        )
+        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8").reshape(1, int(height), int(width), 3)
         return image
 
     cdf_plot = tf.py_func(cdf_plot, [values], tf.uint8)
@@ -1186,9 +1130,7 @@ def add_hist_image_summary(values, bins, name):
         ax.set_xlabel("value")
         fig.canvas.draw()
         width, height = fig.get_size_inches() * fig.get_dpi()
-        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8").reshape(
-            1, int(height), int(width), 3
-        )
+        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype="uint8").reshape(1, int(height), int(width), 3)
         return image
 
     hist_plot = tf.py_func(hist_plot, [values, bins], tf.uint8)
@@ -1316,15 +1258,11 @@ class EvalMetricOpsVisualization(six.with_metaclass(abc.ABCMeta, object)):
             )
 
         if tf.executing_eagerly():
-            update_op = self.add_images(
-                [[images[0]]]
-            )  # pylint: disable=assignment-from-none
+            update_op = self.add_images([[images[0]]])  # pylint: disable=assignment-from-none
             image_tensors = get_images()
         else:
             update_op = tf.py_func(self.add_images, [[images[0]]], [])
-            image_tensors = tf.py_func(
-                get_images, [], [tf.uint8] * self._max_examples_to_draw
-            )
+            image_tensors = tf.py_func(get_images, [], [tf.uint8] * self._max_examples_to_draw)
         eval_metric_ops = {}
         for i, image in enumerate(image_tensors):
             summary_name = self._summary_name_prefix + "/" + str(i)

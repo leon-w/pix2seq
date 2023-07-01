@@ -38,9 +38,7 @@ class Model(tf.keras.models.Model):
         self.decoder_config = decoder_config = config.decoder
         self.config = config = config.model
         assert config.conditional in ["cat", "attn", "cat+attn", "none"]
-        encoder_trainable = (
-            False if (config.frozen_backbone or config.conditional == "none") else True
-        )
+        encoder_trainable = False if (config.frozen_backbone or config.conditional == "none") else True
         encoder_fuse_trainable = False if config.conditional == "none" else True
 
         self.scheduler = diffusion_utils.Scheduler(config.train_schedule)
@@ -182,9 +180,7 @@ class Model(tf.keras.models.Model):
         config = self.config
         if not hasattr(self, "images_shape"):
             self.images_shape = tf.shape(images)
-        encoded_cat = tf.zeros(
-            [tf.shape(images)[0], config.msize[0], config.msize[1], config.enc_fuse_dim]
-        )
+        encoded_cat = tf.zeros([tf.shape(images)[0], config.msize[0], config.msize[1], config.enc_fuse_dim])
         return encoded_cat, None
 
     def encode_images(self, images, training):
@@ -202,9 +198,7 @@ class Model(tf.keras.models.Model):
         else:
             encoded, encoded_list = encoder(images, training, ret_list=True)
             bsz, hf_, wf_, _ = get_shape(encoded_list[-1])
-            features = encoded_list[:-1] + [
-                tf.reshape(encoded, [bsz, hf_, wf_, tf.shape(encoded)[-1]])
-            ]
+            features = encoded_list[:-1] + [tf.reshape(encoded, [bsz, hf_, wf_, tf.shape(encoded)[-1]])]
         if config.frozen_backbone:
             encoded = tf.stop_gradient(encoded)
             features = [tf.stop_gradient(f) for f in features]
@@ -213,18 +207,14 @@ class Model(tf.keras.models.Model):
             encoded_cat *= 0  # keep vars and shape the same.
         return encoded_cat, encoded
 
-    def get_cond_denoise(
-        self, encoded_cat, encoded, cond_map=None, return_logits=False
-    ):
+    def get_cond_denoise(self, encoded_cat, encoded, cond_map=None, return_logits=False):
         def cond_denoise(samples, gamma, training):
             gamma = tf.reshape(gamma, [-1])
             if self.config.normalize_noisy_input:
                 # rescaling vs normalization
                 # gamma_ = tf.reshape(gamma, [tf.shape(gamma)[0], 1, 1, 1])
                 # samples /= tf.sqrt((self.config.b_scale**2-1) * gamma_ + 1)
-                samples /= tf.math.reduce_std(
-                    samples, list(range(1, samples.shape.ndims)), keepdims=True
-                )
+                samples /= tf.math.reduce_std(samples, list(range(1, samples.shape.ndims)), keepdims=True)
             if encoded_cat is not None:
                 if isinstance(samples, tuple) or isinstance(samples, list):
                     samples = list(samples)
@@ -297,9 +287,7 @@ class Model(tf.keras.models.Model):
             encoded_cat = utils.tile_along_batch(encoded_cat, config.l_tile_factors)
             encoded = utils.tile_along_batch(encoded, config.l_tile_factors)
             masks = utils.tile_along_batch(masks, config.l_tile_factors)
-        masks_noised, noise, _, gamma = self.scheduler.add_noise(
-            masks, time_step=time_step
-        )
+        masks_noised, noise, _, gamma = self.scheduler.add_noise(masks, time_step=time_step)
         if config.self_cond != "none":
             sc_rate = config.get("self_cond_rate", 0.5)
             self_cond_by_masking = config.get("self_cond_by_masking", False)
@@ -308,9 +296,7 @@ class Model(tf.keras.models.Model):
                 num_sc_data = tf.shape(images)[0]
             else:
                 sc_drop_rate = 0.0
-                num_sc_data = tf.cast(
-                    tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32
-                )
+                num_sc_data = tf.cast(tf.cast(tf.shape(images)[0], tf.float32) * sc_rate, tf.int32)
             encoded_cat_p = None if encoded_cat is None else encoded_cat[:num_sc_data]
             encoded_p = None if encoded is None else encoded[:num_sc_data]
             cond_map_p = None if cond_map is None else cond_map[:num_sc_data]
@@ -339,9 +325,7 @@ class Model(tf.keras.models.Model):
                 )
         else:
             denoise_inputs = masks_noised
-        cond_denoise = self.get_cond_denoise(
-            encoded_cat, encoded, cond_map, return_logits=True
-        )
+        cond_denoise = self.get_cond_denoise(encoded_cat, encoded, cond_map, return_logits=True)
         denoise_out = cond_denoise(denoise_inputs, gamma, training)
         if isinstance(denoise_out, tuple):
             denoise_out = denoise_out[0]
@@ -362,10 +346,7 @@ class Model(tf.keras.models.Model):
             xs = tf.split(masks, self.decoder_config.outp_softmax_groups, -1)
             targets = utils.bits2int(tf.stack(xs, -2) > 0, tf.int32)
             targets = tf.one_hot(targets, tf.shape(denoise_out)[-1])
-            loss = tf.reduce_mean(
-                masks_weight
-                * tf.nn.softmax_cross_entropy_with_logits(targets, denoise_out)
-            )
+            loss = tf.reduce_mean(masks_weight * tf.nn.softmax_cross_entropy_with_logits(targets, denoise_out))
         elif config.pred_type == "eps":
             loss = tf.reduce_mean(tf.square(noise - denoise_out))
         else:
@@ -375,9 +356,7 @@ class Model(tf.keras.models.Model):
     def call(self, images, masks, masks_weight, training):
         """Model inference call."""
         with tf.name_scope(""):  # for other functions to have the same name scope.
-            masks, noise, _, denoise_out = self.noise_denoise(
-                images, masks, None, training
-            )
+            masks, noise, _, denoise_out = self.noise_denoise(images, masks, None, training)
             return self.compute_loss(masks, noise, denoise_out, masks_weight)
 
 
@@ -397,39 +376,25 @@ class Trainer(model_lib.Trainer):
         # EMA udpate
         oconfig = self.config.optimization
         ema_decay = oconfig.get("ema_decay", 0.0)
-        if self.config.model.conditional == "none" and not hasattr(
-            self.model, "encoder_initialized"
-        ):
+        if self.config.model.conditional == "none" and not hasattr(self.model, "encoder_initialized"):
             self.model.encoder_initialized = True
-            _ = self.model.encode_images(
-                tf.zeros(self.model.images_shape), training=True
-            )
-        vars_src = (
-            self.model.denoiser.variables
-            + self.model.encoder.variables
-            + self.model.encoder_fuse.variables
-        )
+            _ = self.model.encode_images(tf.zeros(self.model.images_shape), training=True)
+        vars_src = self.model.denoiser.variables + self.model.encoder.variables + self.model.encoder_fuse.variables
         if not hasattr(self.model, "ema_initialized"):
             self.model.ema_initialized = True
-            _ = self.model.encode_images(
-                tf.zeros(self.model.images_shape), training=False
-            )
+            _ = self.model.encode_images(tf.zeros(self.model.images_shape), training=False)
             if isinstance(self.model.denoise_x_shape, tuple):
                 x = tuple(tf.zeros(sh) for sh in self.model.denoise_x_shape)
             else:
                 x = tf.zeros(self.model.denoise_x_shape)
             _ = self.model.denoise(
                 x=x,
-                c=tf.zeros(self.model.denoise_c_shape)
-                if hasattr(self.model, "denoise_c_shape")
-                else None,
+                c=tf.zeros(self.model.denoise_c_shape) if hasattr(self.model, "denoise_c_shape") else None,
                 gamma=tf.zeros(self.model.denoise_gamma_shape),
                 training=False,
             )
         vars_dst = (
-            self.model.denoiser_ema.variables
-            + self.model.encoder_ema.variables
-            + self.model.encoder_fuse_ema.variables
+            self.model.denoiser_ema.variables + self.model.encoder_ema.variables + self.model.encoder_fuse_ema.variables
         )
         assert len(vars_src) == len(vars_dst), (len(vars_src), len(vars_dst))
         if oconfig.get("ema_name_exact_match", False):

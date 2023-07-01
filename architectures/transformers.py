@@ -41,9 +41,7 @@ def get_angles(pos, i, dim):
 
 def positional_encoding(coords, dim):
     """coords in (bsz, size), return (bsz, size, dim)."""
-    angle_rads = get_angles(
-        tf.expand_dims(coords, -1), tf.range(dim)[tf.newaxis, tf.newaxis, :], dim
-    )
+    angle_rads = get_angles(tf.expand_dims(coords, -1), tf.range(dim)[tf.newaxis, tf.newaxis, :], dim)
 
     # apply sin to even indices in the array; 2i
     angle_rads1 = tf.sin(angle_rads[:, :, 0::2])
@@ -111,9 +109,7 @@ def get_variable_initializer(name=None):
         return tf.keras.initializers.TruncatedNormal(mean=0.0, stddev=0.02)
 
 
-def add_seq_pos_emb(
-    self, pos_encoding, max_seq_len, dim, name_prefix=None, initializer=None
-):
+def add_seq_pos_emb(self, pos_encoding, max_seq_len, dim, name_prefix=None, initializer=None):
     """Add seq_pos_emb variable/tensor to model instance referenced by `self`."""
     if name_prefix is None:
         name_prefix = self.name
@@ -156,13 +152,9 @@ def add_vis_pos_emb(
         )
     elif pos_encoding == "sin_cos":
         if n_rows == 1 or n_cols == 1:
-            sin_cos = get_1d_position_codes(
-                n_rows * n_cols, dim, normalization_max=normalization_max
-            )
+            sin_cos = get_1d_position_codes(n_rows * n_cols, dim, normalization_max=normalization_max)
         else:
-            sin_cos = get_2d_position_codes(
-                n_rows, n_cols, dim, normalization_max=normalization_max
-            )
+            sin_cos = get_2d_position_codes(n_rows, n_cols, dim, normalization_max=normalization_max)
         vis_pos_emb = tf.reshape(sin_cos, [n_rows * n_cols, dim])
     else:
         raise ValueError("Unknown pos encoding %s" % pos_encoding)
@@ -267,9 +259,7 @@ def get_local_ar_mask(seq_len, window_size, dtype=tf.float32):
       tensor of shape [1, 1, seq_len, seq_len] with ones for
       locations to be masked out.
     """
-    valid_locs = tf.linalg.band_part(
-        tf.ones([window_size, window_size], dtype=dtype), -1, 0
-    )
+    valid_locs = tf.linalg.band_part(tf.ones([window_size, window_size], dtype=dtype), -1, 0)
     valid_locs = kronecker_product(tf.eye(seq_len // window_size), valid_locs)
     valid_locs = tf.reshape(valid_locs, [1, 1, seq_len, seq_len])
     return 1.0 - valid_locs
@@ -301,14 +291,10 @@ def merge_masks(mask1, mask2):
     sh2 = tf.shape(mask2)
     top_right = tf.ones([1, 1, sh1[2], sh2[3]], mask1.dtype)
     bottom_left = tf.zeros([1, 1, sh2[2], sh1[3]], mask2.dtype)
-    return tf.concat(
-        [tf.concat([mask1, top_right], 3), tf.concat([bottom_left, mask2], 3)], 2
-    )
+    return tf.concat([tf.concat([mask1, top_right], 3), tf.concat([bottom_left, mask2], 3)], 2)
 
 
-def top_logits(
-    logits: tf.Tensor, k: int = 0, p: float = 1.0, mask: float = -1e10
-) -> tf.Tensor:
+def top_logits(logits: tf.Tensor, k: int = 0, p: float = 1.0, mask: float = -1e10) -> tf.Tensor:
     """Remove low probability logits via masking.
 
     Args:
@@ -331,9 +317,7 @@ def top_logits(
     if p < 1.0:
         sorted_logits = tf.sort(logits, direction="DESCENDING", axis=-1)
         cum_probs = tf.cumsum(tf.nn.softmax(sorted_logits, axis=-1), axis=-1)
-        min_logits = -tf.reduce_max(
-            tf.where(cum_probs <= p, -sorted_logits, mask), -1, keepdims=True
-        )
+        min_logits = -tf.reduce_max(tf.where(cum_probs <= p, -sorted_logits, mask), -1, keepdims=True)
         min_logits = tf.minimum(min_logits, sorted_logits[:, :1])
         logits = tf.where(logits < min_logits, mask, logits)
     return logits
@@ -407,9 +391,7 @@ class FeedForwardLayer(tf.keras.layers.Layer):  # pylint: disable=missing-docstr
         **kwargs,
     ):
         super(FeedForwardLayer, self).__init__(**kwargs)
-        self.dense1 = tf.keras.layers.Dense(
-            dim_mlp, activation=tf.nn.gelu, name="dense1"
-        )
+        self.dense1 = tf.keras.layers.Dense(dim_mlp, activation=tf.nn.gelu, name="dense1")
         self.dropout = tf.keras.layers.Dropout(drop_units)
         self.dense2 = tf.keras.layers.Dense(dim_att, name="dense2")
         if use_ln:
@@ -468,9 +450,7 @@ class MLP(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         return (x, x_list) if ret_list else x
 
 
-class TransformerEncoderLayer(
-    tf.keras.layers.Layer
-):  # pylint: disable=missing-docstring
+class TransformerEncoderLayer(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     def __init__(
         self,
         dim,
@@ -490,9 +470,7 @@ class TransformerEncoderLayer(
             self.mha_ln = tf.keras.layers.LayerNormalization(
                 epsilon=1e-6, center=ln_scale_shift, scale=ln_scale_shift, name="mha/ln"
             )
-            self.mha = tf.keras.layers.MultiHeadAttention(
-                num_heads, dim // num_heads, dropout=drop_att, name="mha"
-            )
+            self.mha = tf.keras.layers.MultiHeadAttention(num_heads, dim // num_heads, dropout=drop_att, name="mha")
         self.mlp = MLP(
             1,
             dim,
@@ -556,9 +534,7 @@ class TransformerEncoder(tf.keras.layers.Layer):  # pylint: disable=missing-docs
         return (x, x_list) if ret_list else x
 
 
-class TransformerDecoderLayer(
-    tf.keras.layers.Layer
-):  # pylint: disable=missing-docstring
+class TransformerDecoderLayer(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     def __init__(
         self,
         dim,
@@ -690,9 +666,7 @@ class TransformerDecoder(tf.keras.layers.Layer):  # pylint: disable=missing-docs
         presents = []
         for i in range(self.num_layers):
             cache = None if caches is None else caches[i]
-            x, x_for_cache = self.dec_layers[i](
-                x, enc, cache, mask_self, mask_cross, training
-            )
+            x, x_for_cache = self.dec_layers[i](x, enc, cache, mask_self, mask_cross, training)
             presents.append(x_for_cache)
 
         return x, tf.stack(presents)
@@ -741,9 +715,7 @@ class VisionTransformer(tf.keras.layers.Layer):  # pylint: disable=missing-docst
             drop_att,
             name="transformer_encoder",
         )
-        self.output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="ouput_ln"
-        )
+        self.output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="ouput_ln")
 
     def call(self, images, training, ret_list=False):
         """Input images of (bsz, h, w, c)."""
@@ -756,9 +728,7 @@ class VisionTransformer(tf.keras.layers.Layer):  # pylint: disable=missing-docst
             cls_token = tf.tile(tf.expand_dims(self.cls_token_emb, 0), [bsz, 1, 1])
             tokens = tf.concat([cls_token, tokens], 1)
 
-        tokens, x_list = self.transformer_encoder(
-            tokens, None, training=training, ret_list=True
-        )
+        tokens, x_list = self.transformer_encoder(tokens, None, training=training, ret_list=True)
         x = self.output_ln(tokens)
         return (x, x_list) if ret_list else x
 
@@ -815,9 +785,7 @@ class ResNetTransformer(tf.keras.layers.Layer):  # pylint: disable=missing-docst
             drop_att,
             name="transformer_encoder",
         )
-        self.output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="ouput_ln"
-        )
+        self.output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="ouput_ln")
 
     def call(self, images, training, ret_list=False):
         """Input images of (bsz, h, w, c)."""
@@ -832,9 +800,7 @@ class ResNetTransformer(tf.keras.layers.Layer):  # pylint: disable=missing-docst
             cls_token = tf.tile(tf.expand_dims(self.cls_token_emb, 0), [bsz, 1, 1])
             tokens = tf.concat([cls_token, tokens], 1)
 
-        tokens, x_list = self.transformer_encoder(
-            tokens, None, training=training, ret_list=True
-        )
+        tokens, x_list = self.transformer_encoder(tokens, None, training=training, ret_list=True)
         x = self.output_ln(tokens)
         return (x, hidden_stack) if ret_list else x
 
@@ -877,9 +843,7 @@ class AutoregressiveDecoder(tf.keras.layers.Layer):  # pylint: disable=missing-d
             cross_attention=cross_attention,
             name="transformer_decoder",
         )
-        self.output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="ouput_ln"
-        )
+        self.output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="ouput_ln")
 
     def call(self, tokens, encoded, training):
         """Teacher-forced prediction.
@@ -972,9 +936,7 @@ class AutoregressiveDecoder(tf.keras.layers.Layer):  # pylint: disable=missing-d
                 x = tf.expand_dims(x, 1)  # (bsz, 1, d)
                 mask_self = tf.ones([1, 1, 1, 1])
                 caches_in = tf.transpose(caches[:step], [1, 2, 0, 3])
-            outputs, caches_out = self.decoder(
-                x, encoded, caches_in, mask_self, None, training=False
-            )
+            outputs, caches_out = self.decoder(x, encoded, caches_in, mask_self, None, training=False)
             outputs = self.output_ln(outputs)
             next_logits = tf.matmul(  # only take the last for sampling next token.
                 outputs, outp_embedding, transpose_b=True
@@ -984,15 +946,11 @@ class AutoregressiveDecoder(tf.keras.layers.Layer):  # pylint: disable=missing-d
 
             # Scale and trunctate logits and sample next token.
             if sampling_callback:
-                next_token = sampling_callback(
-                    next_logits, step, temperature, top_k, top_p
-                )
+                next_token = sampling_callback(next_logits, step, temperature, top_k, top_p)
             else:
                 sampling_logits = next_logits / tf.cast(temperature, tf.float32)
                 sampling_logits = top_logits(sampling_logits, k=top_k, p=top_p)
-                next_token = tf.random.categorical(
-                    sampling_logits, num_samples=1, dtype=tf.int32
-                )[:, 0]
+                next_token = tf.random.categorical(sampling_logits, num_samples=1, dtype=tf.int32)[:, 0]
 
             # Update internal states.
             next_step = step + (prompt_len if is_prompt else 1)
@@ -1024,14 +982,10 @@ class AutoregressiveDecoder(tf.keras.layers.Layer):  # pylint: disable=missing-d
         tokens_var = tf.zeros([seq_len, bsz], dtype=tf.int64)
         logits_var = tf.zeros([seq_len, bsz, self.vocab_size], dtype=tf.float32)
         indices = tf.expand_dims(tf.range(prompt_len), -1)
-        tokens_var = tf.tensor_scatter_nd_update(
-            tokens_var, indices, tf.transpose(prompt, [1, 0])
-        )
+        tokens_var = tf.tensor_scatter_nd_update(tokens_var, indices, tf.transpose(prompt, [1, 0]))
 
         step = 0
-        step, caches_var, tokens_var, logits_var = loop_body(
-            step, caches_var, tokens_var, logits_var, is_prompt=True
-        )
+        step, caches_var, tokens_var, logits_var = loop_body(step, caches_var, tokens_var, logits_var, is_prompt=True)
         if seq_len > prompt_len:
             step, caches_var, tokens_var, logits_var = tf.while_loop(
                 cond=cond,
@@ -1081,27 +1035,21 @@ class FIT(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     ):
         super().__init__(**kwargs)
         if x_size % num_groups != 0:
-            raise ValueError(
-                f"x_size={x_size} is not divisible by num_groups={num_groups}"
-            )
+            raise ValueError(f"x_size={x_size} is not divisible by num_groups={num_groups}")
         x_per_group = x_size // num_groups
         self.num_groups = num_groups
         self.latents_per_group = latents_per_group
         self.layer_configs = get_layer_config(layers)
         self.mask = None
         if mask == "causal":
-            self.mask = 1.0 - get_chunk_ar_mask(
-                num_groups * latents_per_group, latents_per_group, dtype=tf.float32
-            )
+            self.mask = 1.0 - get_chunk_ar_mask(num_groups * latents_per_group, latents_per_group, dtype=tf.float32)
         elif mask != "none":
             raise ValueError(f"Unknown mask {mask}")
 
         self.stem = tf.keras.layers.Dense(x_dim, name="stem")
         self.stem_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="stem_ln")
         self.stem_y = tf.keras.layers.Dense(x_dim, name="stem_y")
-        self.stem_y_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="stem_y_ln"
-        )
+        self.stem_y_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="stem_y_ln")
         self.latent_pos_emb = add_vis_pos_emb(
             self,
             latent_pos_encoding,
@@ -1191,12 +1139,8 @@ class FIT(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     use_enc_ln=True,
                     name="x2l_cross_attn" + suffix_id(i),
                 )
-        self.x_output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="x_output_ln"
-        )
-        self.l_output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="l_output_ln"
-        )
+        self.x_output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="x_output_ln")
+        self.l_output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="l_output_ln")
 
     def call(self, x, y=None, training=True):
         """x in [bsz, t, n, c], y in [bsz, t, m, k]."""
@@ -1215,16 +1159,12 @@ class FIT(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
             x = self.x_network[str(i)](x, None, training=training)
 
             if self.layer_configs[i][-1] > 0:
-                latents = self.l2x_cross_attn[str(i)](
-                    latents, x, None, None, None, training=training
-                )[0]
+                latents = self.l2x_cross_attn[str(i)](latents, x, None, None, None, training=training)[0]
                 latents = einops.rearrange(latents, "(b t) m d -> b (t m) d", t=t)
                 latents = self.l_network[str(i)](latents, self.mask, training)
                 latents = einops.rearrange(latents, "b (t m) d -> (b t) m d", t=t)
                 if i < len(self.layer_configs) - 1:
-                    x = self.x2l_cross_attn[str(i)](
-                        x, latents, None, None, None, training=training
-                    )[0]
+                    x = self.x2l_cross_attn[str(i)](x, latents, None, None, None, training=training)[0]
 
         x = einops.rearrange(x, "(b t) m d -> b t m d", t=t)
         latents = einops.rearrange(latents, "(b t) m d -> b t m d", t=t)
@@ -1259,9 +1199,7 @@ class FITDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     ):
         super().__init__(**kwargs)
         if x_size % num_groups != 0:
-            raise ValueError(
-                f"x_size={x_size} is not divisible by num_groups={num_groups}"
-            )
+            raise ValueError(f"x_size={x_size} is not divisible by num_groups={num_groups}")
         x_per_group = x_size // num_groups
         self.num_groups = num_groups
         self.latents_per_group = latents_per_group
@@ -1270,17 +1208,13 @@ class FITDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         self.layer_configs = get_layer_config(layers)
         self.mask = None
         if mask == "causal":
-            self.mask = 1.0 - get_chunk_ar_mask(
-                num_groups * latents_per_group, latents_per_group, dtype=tf.float32
-            )
+            self.mask = 1.0 - get_chunk_ar_mask(num_groups * latents_per_group, latents_per_group, dtype=tf.float32)
         elif mask != "none":
             raise ValueError(f"Unknown mask {mask}")
 
         self.stem = tf.keras.layers.Dense(x_dim, name="stem")
         self.stem_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="stem_ln")
-        self.time_emb = ScalarEmbedding(
-            dim=latent_dim // 4, scaling=1000.0, expansion=4, name="time_emb"
-        )
+        self.time_emb = ScalarEmbedding(dim=latent_dim // 4, scaling=1000.0, expansion=4, name="time_emb")
         if cond_proj:
             self.cond_proj = tf.keras.layers.Dense(latent_dim, name="cond_proj")
         else:
@@ -1390,9 +1324,7 @@ class FITDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     use_enc_ln=xattn_enc_ln,
                     name="x2l_cross_attn" + suffix_id(i),
                 )
-        self.x_output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="x_output_ln"
-        )
+        self.x_output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="x_output_ln")
         self.x_output_linear = tf.keras.layers.Dense(out_dim, name="x_output_linear")
 
     @property
@@ -1407,9 +1339,7 @@ class FITDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         return t, cond
 
     def initialize_latent(self, batch_size, latents_prev, training):
-        latents = tf.reshape(
-            self.latent_pos_emb, [1, self.num_groups, self.latents_per_group, -1]
-        )
+        latents = tf.reshape(self.latent_pos_emb, [1, self.num_groups, self.latents_per_group, -1])
         latents = tf.tile(latents, [batch_size, 1, 1, 1])
         if self.self_cond in ["latent"]:
             latents += self.latent_prev_ln(self.latent_prev_proj(latents_prev))
@@ -1436,19 +1366,13 @@ class FITDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         for i in range(len(self.layer_configs)):
             x = self.x_network[str(i)](x, None, training=training)
             if self.layer_configs[i][-1] > 0:
-                latents = self.l2x_cross_attn[str(i)](
-                    latents, x, None, None, None, training=training
-                )[0]
+                latents = self.l2x_cross_attn[str(i)](latents, x, None, None, None, training=training)[0]
                 latents = einops.rearrange(latents, "(b t) m d -> b (t m) d", t=t)
-                latents = self.l2c_cross_attn[str(i)](
-                    latents, cond, None, None, None, training=training
-                )[0]
+                latents = self.l2c_cross_attn[str(i)](latents, cond, None, None, None, training=training)[0]
                 latents = self.l_network[str(i)](latents, self.mask, training)
                 latents = einops.rearrange(latents, "b (t m) d -> (b t) m d", t=t)
                 if i < len(self.layer_configs) - 1:
-                    x = self.x2l_cross_attn[str(i)](
-                        x, latents, None, None, None, training=training
-                    )[0]
+                    x = self.x2l_cross_attn[str(i)](x, latents, None, None, None, training=training)[0]
 
         x = einops.rearrange(x, "(b t) m d -> b t m d", t=t)
         latents = einops.rearrange(latents, "(b t) m d -> b t m d", t=t)
@@ -1515,9 +1439,7 @@ class FITAR(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
     ):
         super().__init__(**kwargs)
         if x_size % num_groups != 0:
-            raise ValueError(
-                f"x_size={x_size} is not divisible by num_groups={num_groups}"
-            )
+            raise ValueError(f"x_size={x_size} is not divisible by num_groups={num_groups}")
         x_per_group = x_size // num_groups
         self.num_groups = num_groups
         self.latents_per_group = latents_per_group
@@ -1525,9 +1447,7 @@ class FITAR(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         self.output_bias = output_bias
         self.layer_configs = get_layer_config(layers)
         self.x_mask = 1.0 - get_ar_mask(x_per_group, dtype=tf.float32)
-        self.l_mask = 1.0 - get_chunk_ar_mask(
-            num_groups * latents_per_group, latents_per_group, dtype=tf.float32
-        )
+        self.l_mask = 1.0 - get_chunk_ar_mask(num_groups * latents_per_group, latents_per_group, dtype=tf.float32)
 
         self.latent_pos_emb = add_vis_pos_emb(
             self,
@@ -1608,12 +1528,8 @@ class FITAR(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
                     use_enc_ln=True,
                     name="x2l_cross_attn" + suffix_id(i),
                 )
-        self.x_output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="x_output_ln"
-        )
-        self.l_output_ln = tf.keras.layers.LayerNormalization(
-            epsilon=1e-6, name="l_output_ln"
-        )
+        self.x_output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="x_output_ln")
+        self.l_output_ln = tf.keras.layers.LayerNormalization(epsilon=1e-6, name="l_output_ln")
 
     def _latent_shift(self, latents, s_len):
         """latents shape change: b t m d -> (b t) m d."""
@@ -1646,25 +1562,17 @@ class FITAR(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
 
         x = einops.rearrange(x, "b t n c -> (b t) n c")
         for i in range(len(self.layer_configs)):
-            x = self.x_network[str(i)](x, None, None, x_mask, None, training=training)[
-                0
-            ]
+            x = self.x_network[str(i)](x, None, None, x_mask, None, training=training)[0]
 
             if self.layer_configs[i][-1] > 0:
                 latents = einops.rearrange(latents, "b t m d -> (b t) m d")
-                latents = self.l2x_cross_attn[str(i)](
-                    latents, x, None, None, None, training=training
-                )[0]
+                latents = self.l2x_cross_attn[str(i)](latents, x, None, None, None, training=training)[0]
                 latents = einops.rearrange(latents, "(b t) m d -> b (t m) d", t=t)
-                latents = self.l_network[str(i)](
-                    latents, None, None, l_mask, None, training=training
-                )[0]
+                latents = self.l_network[str(i)](latents, None, None, l_mask, None, training=training)[0]
                 latents = einops.rearrange(latents, "b (t m) d -> b t m d", t=t)
                 if i < len(self.layer_configs) - 1:
                     latents, latents_last = self._latent_shift(latents, t)
-                    x = self.x2l_cross_attn[str(i)](
-                        x, latents, None, None, None, training=training
-                    )[0]
+                    x = self.x2l_cross_attn[str(i)](x, latents, None, None, None, training=training)[0]
                     latents = self._latent_shift_back(latents, latents_last, t)
 
         x = einops.rearrange(x, "(b t) n d -> b t n d", t=t)

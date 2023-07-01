@@ -178,9 +178,7 @@ class DavisVideoObjectSegmentationMetric:
             # Write metrics to result_dir.
             result_dir = os.path.join(self.results_dir, str(step))
             csv_name_global_path = os.path.join(result_dir, "global_results.csv")
-            csv_name_per_sequence_path = os.path.join(
-                result_dir, "per_sequence_results.csv"
-            )
+            csv_name_per_sequence_path = os.path.join(result_dir, "per_sequence_results.csv")
 
             # Global results.
             g_res_ = np.reshape(g_res, [1, len(g_res)])

@@ -71,9 +71,7 @@ class RecordOriginalImageSize(Transform):
 
     def process_example(self, example: dict[str, tf.Tensor]):
         image_key = self.config.get("image_key", "image")
-        orig_image_size_key = self.config.get(
-            "original_image_size_key", DEFAULT_ORIG_IMAGE_SIZE_KEY
-        )
+        orig_image_size_key = self.config.get("original_image_size_key", DEFAULT_ORIG_IMAGE_SIZE_KEY)
         example[orig_image_size_key] = tf.shape(example[image_key])[:2]
         return example
 
@@ -113,9 +111,7 @@ class ResizeImage(Transform):
         antialias_list = self.config.get("antialias", [False] * num_inputs)
         preserve_ar = self.config.get("preserve_aspect_ratio", [True] * num_inputs)
 
-        for k, resize_method, antialias, p_ar in zip(
-            self.config.inputs, resize_methods, antialias_list, preserve_ar
-        ):
+        for k, resize_method, antialias, p_ar in zip(self.config.inputs, resize_methods, antialias_list, preserve_ar):
             example[k] = tf.image.resize(
                 example[k],
                 self.config.target_size,
@@ -149,17 +145,13 @@ class ScaleJitter(Transform):
         output_size = tf.constant([target_height, target_width], tf.float32)
         random_scale = tf.random.uniform([], min_scale, max_scale)
         random_scale_size = tf.multiply(output_size, random_scale)
-        scale = tf.minimum(
-            random_scale_size[0] / input_size[0], random_scale_size[1] / input_size[1]
-        )
+        scale = tf.minimum(random_scale_size[0] / input_size[0], random_scale_size[1] / input_size[1])
         scaled_size = tf.cast(tf.multiply(input_size, scale), tf.int32)
 
         num_inputs = len(self.config.inputs)
         resize_methods = self.config.get("resize_method", ["bilinear"] * num_inputs)
         antialias_list = self.config.get("antialias", [False] * num_inputs)
-        for k, resize_method, antialias in zip(
-            self.config.inputs, resize_methods, antialias_list
-        ):
+        for k, resize_method, antialias in zip(self.config.inputs, resize_methods, antialias_list):
             example[k] = tf.image.resize(
                 example[k],
                 tf.cast(scaled_size, tf.int32),
@@ -199,9 +191,7 @@ class FixedSizeCrop(Transform):
         )
         object_coordinate_keys = self.config.get("object_coordinate_keys", [])
 
-        return data_utils.crop(
-            example, region, self.config.inputs, object_coordinate_keys
-        )
+        return data_utils.crop(example, region, self.config.inputs, object_coordinate_keys)
 
 
 @TransformRegistry.register("random_horizontal_flip")
@@ -226,17 +216,9 @@ class RandomHorizontalFlip(Transform):
             coin_flip = tf.random.uniform([]) > 0.5
             if coin_flip:
                 inputs = {k: tf.image.flip_left_right(v) for k, v in inputs.items()}
-                boxes = {
-                    k: data_utils.flip_boxes_left_right(v) for k, v in boxes.items()
-                }
-                keypoints = {
-                    k: data_utils.flip_keypoints_left_right(v)
-                    for k, v in keypoints.items()
-                }
-                polygons = {
-                    k: data_utils.flip_polygons_left_right(v)
-                    for k, v in polygons.items()
-                }
+                boxes = {k: data_utils.flip_boxes_left_right(v) for k, v in boxes.items()}
+                keypoints = {k: data_utils.flip_keypoints_left_right(v) for k, v in keypoints.items()}
+                polygons = {k: data_utils.flip_polygons_left_right(v) for k, v in polygons.items()}
 
         example.update(inputs)
         example.update(boxes)
@@ -324,9 +306,7 @@ class ReorderObjectInstances(Transform):
                 num_instances = tf.shape(example[self.config.inputs[0]])[0]
             idx = tf.random.shuffle(tf.range(num_instances))
         elif order == "area":
-            areas = tf.cast(
-                tf.reduce_prod(bbox[:, 1, :] - bbox[:, 0, :], axis=1), tf.int64
-            )  # approximated size.
+            areas = tf.cast(tf.reduce_prod(bbox[:, 1, :] - bbox[:, 0, :], axis=1), tf.int64)  # approximated size.
             idx = tf.argsort(areas, direction="DESCENDING")
         elif order == "dist2ori":
             y, x = bbox[:, 0], bbox[:, 1]  # using top-left corner.
@@ -409,9 +389,7 @@ class PadImageToMaxSize(Transform):
             wratio = tf.cast(width, tf.float32) / tf.cast(target_size[1], tf.float32)
             scale = tf.stack([hratio, wratio])
             for key in object_coordinate_keys:
-                example[key] = data_utils.flatten_points(
-                    data_utils.unflatten_points(example[key]) * scale
-                )
+                example[key] = data_utils.flatten_points(data_utils.unflatten_points(example[key]) * scale)
         return example
 
 
@@ -448,12 +426,8 @@ class PreserveReservedTokens(Transform):
 
     def process_example(self, example: dict[str, tf.Tensor]):
         example = copy.copy(example)
-        for points, points_orig in zip(
-            self.config.points_keys, self.config.points_orig_keys
-        ):
-            example[points] = utils.preserve_reserved_tokens(
-                example[points], example[points_orig]
-            )
+        for points, points_orig in zip(self.config.points_keys, self.config.points_orig_keys):
+            example[points] = utils.preserve_reserved_tokens(example[points], example[points_orig])
         return example
 
 

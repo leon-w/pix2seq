@@ -142,9 +142,7 @@ class Model(tf.keras.models.Model):
         if config.dec_proj_mode != "linear":
             vis_pos_emb = tf.expand_dims(self.vis_pos_emb, 0)
             if config.use_cls_token:
-                encoded = encoded + tf.concat(
-                    [tf.zeros_like(vis_pos_emb[:, :1]), vis_pos_emb], 1
-                )
+                encoded = encoded + tf.concat([tf.zeros_like(vis_pos_emb[:, :1]), vis_pos_emb], 1)
             else:
                 encoded = encoded + vis_pos_emb
             if config.dec_proj_mode == "mlp":
@@ -249,9 +247,7 @@ class ARTrainer(model_lib.Trainer):
         self._metrics.update(
             {
                 "loss_notpad": tf.keras.metrics.Mean("loss_notpad"),
-                "accuracy_notpad": tf.keras.metrics.SparseCategoricalAccuracy(
-                    "accuracy_notpad"
-                ),
+                "accuracy_notpad": tf.keras.metrics.SparseCategoricalAccuracy("accuracy_notpad"),
             }
         )
 
@@ -263,18 +259,12 @@ class ARTrainer(model_lib.Trainer):
         token_weights = utils.flatten_batch_dims(token_weights, out_rank=2)
         token_weights = utils.tf_float32(token_weights)
         is_padding = tf.equal(target_seq, 0)  # padding tokens.
-        token_weights_notpad = tf.where(
-            is_padding, tf.zeros_like(token_weights), token_weights
-        )
+        token_weights_notpad = tf.where(is_padding, tf.zeros_like(token_weights), token_weights)
 
         logits = self.model(image, input_seq)
         losses = model_utils.get_loss(logits, target_seq, self.config.train.loss_type)
-        loss = tf.reduce_sum(losses * token_weights) / (
-            tf.reduce_sum(token_weights) + 1e-9
-        )
-        loss_notpad = tf.reduce_sum(losses * token_weights_notpad) / (
-            tf.reduce_sum(token_weights_notpad) + 1e-9
-        )
+        loss = tf.reduce_sum(losses * token_weights) / (tf.reduce_sum(token_weights) + 1e-9)
+        loss_notpad = tf.reduce_sum(losses * token_weights_notpad) / (tf.reduce_sum(token_weights_notpad) + 1e-9)
 
         # update metrics
         self._metrics["loss_notpad"].update_state(loss_notpad)
@@ -342,13 +332,9 @@ class ModelT(Model):
         ]
         patch_size = [config.patch_size, config.patch_size]
         if config.shuffle_glimpses:
-            images, idx = utils.images2glimpses2tokens(
-                images, sub_isize, patch_size, mini_x=self.mini_x, shuffle=True
-            )
+            images, idx = utils.images2glimpses2tokens(images, sub_isize, patch_size, mini_x=self.mini_x, shuffle=True)
         else:
-            images, idx = utils.images2glimpses2tokens(
-                images, sub_isize, patch_size, mini_x=self.mini_x, shuffle=False
-            )
+            images, idx = utils.images2glimpses2tokens(images, sub_isize, patch_size, mini_x=self.mini_x, shuffle=False)
             idx = None
         x_tokens, l_tokens = self.encoder(images, idx, training)
         if self.encoder.layer_configs[-1][-1] > 0:

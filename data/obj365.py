@@ -40,9 +40,7 @@ class Obj365Dataset(dataset_lib.TFRecordDataset):
 
     def _get_source_id(self, example):
         def _generate_source_id():
-            return tf.strings.as_string(
-                tf.strings.to_hash_bucket_fast(example["image/encoded"], 2**63 - 1)
-            )
+            return tf.strings.as_string(tf.strings.to_hash_bucket_fast(example["image/encoded"], 2**63 - 1))
 
         if self.config.get("regenerate_source_id", False):
             source_id = _generate_source_id()
@@ -58,9 +56,7 @@ class Obj365Dataset(dataset_lib.TFRecordDataset):
         """Decode a set of PNG masks to the tf.float32 tensors."""
 
         def _decode_png_mask(png_bytes):
-            mask = tf.squeeze(
-                tf.io.decode_png(png_bytes, channels=1, dtype=tf.uint8), axis=-1
-            )
+            mask = tf.squeeze(tf.io.decode_png(png_bytes, channels=1, dtype=tf.uint8), axis=-1)
             mask = tf.cast(mask, dtype=tf.float32)
             mask.set_shape([None, None])
             return mask
@@ -102,15 +98,11 @@ class Obj365Dataset(dataset_lib.TFRecordDataset):
 
     @property
     def num_train_examples(self):
-        return {"obj365": 1662289, "obj365v1": 608606, "obj365v2": 1662289}[
-            self.config.dataset_name
-        ]
+        return {"obj365": 1662289, "obj365v1": 608606, "obj365v2": 1662289}[self.config.dataset_name]
 
     @property
     def num_eval_examples(self):
-        return {"obj365": 80000, "obj365v1": 30000, "obj365v2": 80000}[
-            self.config.dataset_name
-        ]
+        return {"obj365": 80000, "obj365v1": 30000, "obj365v2": 80000}[self.config.dataset_name]
 
     @property
     def num_classes(self):

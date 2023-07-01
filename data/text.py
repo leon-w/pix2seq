@@ -18,28 +18,28 @@
 from data import dataset as dataset_lib
 
 
-@dataset_lib.DatasetRegistry.register('text')
+@dataset_lib.DatasetRegistry.register("text")
 class TextDataset(dataset_lib.TFDSDataset):
-  """Dataset."""
+    """Dataset."""
 
-  def extract(self, example, training):
-    """Extracts needed features & annotations into a flat dictionary.
+    def extract(self, example, training):
+        """Extracts needed features & annotations into a flat dictionary.
 
-    Args:
-      example: `dict` of raw features.
-      training: `bool` of training vs eval mode.
+        Args:
+          example: `dict` of raw features.
+          training: `bool` of training vs eval mode.
 
-    Returns:
-      a sequence
-    """
-    if self.config.tfds_name.startswith('wikipedia'):
-      text = example['title'] + '\n\n' + example['text']
-    elif self.config.tfds_name.startswith('wmt'):
-      src, dst = self.config.tfds_name.split('/')[1].split('-')
-      if training:
-        text = '[src] ' + example[src] + ' [dst] ' + example[dst]
-      else:
-        text = '[src] ' + example[src] + ' [dst] '
-    else:
-      text = example['text']
-    return {'text': text}
+        Returns:
+          a sequence
+        """
+        if self.config.tfds_name.startswith("wikipedia"):
+            text = example["title"] + "\n\n" + example["text"]
+        elif self.config.tfds_name.startswith("wmt"):
+            src, dst = self.config.tfds_name.split("/")[1].split("-")
+            if training:
+                text = "[src] " + example[src] + " [dst] " + example[dst]
+            else:
+                text = "[src] " + example[src] + " [dst] "
+        else:
+            text = example["text"]
+        return {"text": text}

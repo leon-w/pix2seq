@@ -20,26 +20,27 @@ from typing import Callable
 
 
 class Registry(object):
-  """Registry."""
+    """Registry."""
 
-  def __init__(self):
-    self._registry = {}
+    def __init__(self):
+        self._registry = {}
 
-  def register(self, key: str) -> Callable[[Any], None]:
-    """Returns callable to register value for key."""
-    def r(item):
-      if key in self._registry:
-        raise ValueError("%s already registered!" % key)
-      self._registry[key] = item
-      return item
-    return r
+    def register(self, key: str) -> Callable[[Any], None]:
+        """Returns callable to register value for key."""
 
-  def lookup(self, key: str) -> Any:
-    """Looks up value for key."""
-    if key not in self._registry:
-      valid_keys = "\n".join(self._registry.keys())
-      raise ValueError(
-          "%s not registered!\n\n"
-          "Valid keys:%s\n\n" %
-          (key, valid_keys))
-    return self._registry[key]
+        def r(item):
+            if key in self._registry:
+                raise ValueError("%s already registered!" % key)
+            self._registry[key] = item
+            return item
+
+        return r
+
+    def lookup(self, key: str) -> Any:
+        """Looks up value for key."""
+        if key not in self._registry:
+            valid_keys = "\n".join(self._registry.keys())
+            raise ValueError(
+                "%s not registered!\n\n" "Valid keys:%s\n\n" % (key, valid_keys)
+            )
+        return self._registry[key]

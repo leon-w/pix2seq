@@ -14,7 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 def yxyx_to_xywh(box):
-  ymin, xmin, ymax, xmax = box
-  w = xmax - xmin
-  h = ymax - ymin
-  return [xmin, ymin, w, h]
+    ymin, xmin, ymax, xmax = box
+    w = xmax - xmin
+    h = ymax - ymin
+    return [xmin, ymin, w, h]

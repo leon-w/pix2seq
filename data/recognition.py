@@ -19,32 +19,29 @@ from data import dataset as dataset_lib
 import tensorflow as tf
 
 
-@dataset_lib.DatasetRegistry.register('object_recognition')
+@dataset_lib.DatasetRegistry.register("object_recognition")
 class ImageDataset(dataset_lib.TFDSDataset):
-  """Dataset for image classification datasets."""
+    """Dataset for image classification datasets."""
 
-  def extract(self, example, training):
-    """Extracts needed features & annotations into a flat dictionary.
+    def extract(self, example, training):
+        """Extracts needed features & annotations into a flat dictionary.
 
-    Args:
-      example: `dict` of raw features.
-      training: `bool` of training vs eval mode.
+        Args:
+          example: `dict` of raw features.
+          training: `bool` of training vs eval mode.
 
-    Returns:
-      example: `dict` of relevant features and labels.
-    """
-    image = example['image']
-    if image.shape.rank == 2 or image.shape[-1] == 1:
-      image = tf.image.grayscale_to_rgb(image)
-    if 'label' in example:
-      label = example['label']
-    else:
-      label = tf.zeros([], dtype=tf.int32)
-    return {'image': image,
-            'label': label}
+        Returns:
+          example: `dict` of relevant features and labels.
+        """
+        image = example["image"]
+        if image.shape.rank == 2 or image.shape[-1] == 1:
+            image = tf.image.grayscale_to_rgb(image)
+        if "label" in example:
+            label = example["label"]
+        else:
+            label = tf.zeros([], dtype=tf.int32)
+        return {"image": image, "label": label}
 
-  @property
-  def num_classes(self):
-    return self.builder.info.features['label'].num_classes
-
-
+    @property
+    def num_classes(self):
+        return self.builder.info.features["label"].num_classes

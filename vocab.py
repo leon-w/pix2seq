@@ -34,9 +34,9 @@ BASE_VOCAB_SHIFT = 100
 
 # Floats used to represent padding and separator in the flat list of polygon
 # coords, and invisibility in the key points.
-PADDING_FLOAT = -1.
-SEPARATOR_FLOAT = -2.
-INVISIBLE_FLOAT = -3.
+PADDING_FLOAT = -1.0
+SEPARATOR_FLOAT = -2.0
+INVISIBLE_FLOAT = -3.0
 FLOATS = [PADDING_FLOAT, SEPARATOR_FLOAT, INVISIBLE_FLOAT]
 TOKENS = [PADDING_TOKEN, SEPARATOR_TOKEN, INVISIBLE_TOKEN]
 FLOAT_TO_TOKEN = dict(zip(FLOATS, TOKENS))

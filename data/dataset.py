@@ -30,150 +30,158 @@ DatasetRegistry = registry.Registry()
 
 
 def mix_datasets(input_fns, weights):
-  """Mix multiple datasets according to weights.
+    """Mix multiple datasets according to weights.
 
-  Args:
-    input_fns: a list of input_fn's. Each input_fn takes in an input_context and
-        produces a tf.data.Dataset instance.
-    weights: a list of floats where weights[i] represents the probability to
-        sample from input_fns[i].
+    Args:
+      input_fns: a list of input_fn's. Each input_fn takes in an input_context and
+          produces a tf.data.Dataset instance.
+      weights: a list of floats where weights[i] represents the probability to
+          sample from input_fns[i].
 
-  Returns:
-    a tf.data.Dataset instance.
-  """
-  def input_fn(input_context):
-    dses = []
-    for ifn in input_fns:
-      dses.append(ifn(input_context))
-    mixed_ds = tf.data.Dataset.sample_from_datasets(dses, weights)
-    return mixed_ds
-  return tf.distribute.get_strategy().distribute_datasets_from_function(
-      input_fn)
+    Returns:
+      a tf.data.Dataset instance.
+    """
+
+    def input_fn(input_context):
+        dses = []
+        for ifn in input_fns:
+            dses.append(ifn(input_context))
+        mixed_ds = tf.data.Dataset.sample_from_datasets(dses, weights)
+        return mixed_ds
+
+    return tf.distribute.get_strategy().distribute_datasets_from_function(input_fn)
 
 
 class Dataset(abc.ABC):
-  """A dataset that handles creating a tf.data.Dataset."""
+    """A dataset that handles creating a tf.data.Dataset."""
 
-  def __init__(self, config: ml_collections.ConfigDict):
-    """Constructs the dataset."""
-    self.config = config.dataset
-    self.task_config = config.task
+    def __init__(self, config: ml_collections.ConfigDict):
+        """Constructs the dataset."""
+        self.config = config.dataset
+        self.task_config = config.task
 
-  @abc.abstractmethod
-  def extract(self, example, training):
-    """Extracts needed features & annotations into a flat dictionary.
+    @abc.abstractmethod
+    def extract(self, example, training):
+        """Extracts needed features & annotations into a flat dictionary.
 
-    Note: be consisous about 0 in label, which should probably reserved for
-       special use (such as padding).
+        Note: be consisous about 0 in label, which should probably reserved for
+           special use (such as padding).
 
-    Args:
-      example: `dict` of raw features.
-      training: `bool` of training vs eval mode.
+        Args:
+          example: `dict` of raw features.
+          training: `bool` of training vs eval mode.
 
-    Returns:
-      example: `dict` of relevant features and labels
-    """
+        Returns:
+          example: `dict` of relevant features and labels
+        """
 
-  @abc.abstractmethod
-  def load_dataset(self, input_context, training):
-    """Load tf.data.Dataset from sources such as TFDS or TFRecord files."""
+    @abc.abstractmethod
+    def load_dataset(self, input_context, training):
+        """Load tf.data.Dataset from sources such as TFDS or TFRecord files."""
 
-  def parse_example(self, example, training):
-    del training
-    return example
+    def parse_example(self, example, training):
+        del training
+        return example
 
-  def filter_example(self, unused_example, unused_training):
-    return True
+    def filter_example(self, unused_example, unused_training):
+        return True
 
-  def pipeline(self,
-               process_single_example: Callable[[tf.data.Dataset, int, bool],
-                                                tf.data.Dataset],
-               global_batch_size: int, training: bool):
-    """Data pipeline from name to preprocessed examples.
+    def pipeline(
+        self,
+        process_single_example: Callable[[tf.data.Dataset, int, bool], tf.data.Dataset],
+        global_batch_size: int,
+        training: bool,
+    ):
+        """Data pipeline from name to preprocessed examples.
 
-    Args:
-      process_single_example: a function that takes single example dataset and
-        returns processed example dataset.
-      global_batch_size: global batch size.
-      training: training vs eval mode.
+        Args:
+          process_single_example: a function that takes single example dataset and
+            returns processed example dataset.
+          global_batch_size: global batch size.
+          training: training vs eval mode.
 
-    Returns:
-      An input_fn which generates a tf.data.Dataset instance.
-    """
-    config = self.config
-    def input_fn(input_context):
-      dataset = self.load_dataset(input_context, training)
-      if config.cache_dataset:
-        dataset = dataset.cache()
+        Returns:
+          An input_fn which generates a tf.data.Dataset instance.
+        """
+        config = self.config
 
-      if input_context:
-        batch_size = input_context.get_per_replica_batch_size(global_batch_size)
-        # Sharding is not neccesary for TFDS given read_config above.
-        # dataset = dataset.shard(input_context.num_input_pipelines,
-        #                         input_context.input_pipeline_id)
-      else:
-        batch_size = global_batch_size
+        def input_fn(input_context):
+            dataset = self.load_dataset(input_context, training)
+            if config.cache_dataset:
+                dataset = dataset.cache()
 
-      if training:
-        options = tf.data.Options()
-        options.deterministic = False
-        options.experimental_slack = True
-        dataset = dataset.with_options(options)
-        buffer_size = config.get('buffer_size', 0)
-        if buffer_size <= 0:
-          buffer_size = 10 * batch_size
-        dataset = dataset.shuffle(buffer_size)
-        dataset = dataset.repeat()
+            if input_context:
+                batch_size = input_context.get_per_replica_batch_size(global_batch_size)
+                # Sharding is not neccesary for TFDS given read_config above.
+                # dataset = dataset.shard(input_context.num_input_pipelines,
+                #                         input_context.input_pipeline_id)
+            else:
+                batch_size = global_batch_size
 
-      dataset = dataset.map(
-          lambda x: self.parse_example(x, training),
-          num_parallel_calls=tf.data.experimental.AUTOTUNE
-      ).filter(
-          lambda x: self.filter_example(x, training)
-      ).map(
-          lambda x: self.extract(x, training),
-          num_parallel_calls=tf.data.experimental.AUTOTUNE
-      )
-      if process_single_example:
-        dataset = process_single_example(
-            dataset, config.batch_duplicates, training)
+            if training:
+                options = tf.data.Options()
+                options.deterministic = False
+                options.experimental_slack = True
+                dataset = dataset.with_options(options)
+                buffer_size = config.get("buffer_size", 0)
+                if buffer_size <= 0:
+                    buffer_size = 10 * batch_size
+                dataset = dataset.shuffle(buffer_size)
+                dataset = dataset.repeat()
 
-      # TODO(b/181662974): Revert this and support non-even batch sizes.
-      # dataset = dataset.batch(batch_size, drop_remainder=training)
-      dataset = dataset.padded_batch(batch_size, drop_remainder=True)
-      if config.batch_duplicates > 1 and training:
-        dataset = dataset.map(self._flatten_dims,
-                              num_parallel_calls=tf.data.experimental.AUTOTUNE)
-      dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-      return dataset
+            dataset = (
+                dataset.map(
+                    lambda x: self.parse_example(x, training),
+                    num_parallel_calls=tf.data.experimental.AUTOTUNE,
+                )
+                .filter(lambda x: self.filter_example(x, training))
+                .map(
+                    lambda x: self.extract(x, training),
+                    num_parallel_calls=tf.data.experimental.AUTOTUNE,
+                )
+            )
+            if process_single_example:
+                dataset = process_single_example(
+                    dataset, config.batch_duplicates, training
+                )
 
-    return input_fn
+            # TODO(b/181662974): Revert this and support non-even batch sizes.
+            # dataset = dataset.batch(batch_size, drop_remainder=training)
+            dataset = dataset.padded_batch(batch_size, drop_remainder=True)
+            if config.batch_duplicates > 1 and training:
+                dataset = dataset.map(
+                    self._flatten_dims, num_parallel_calls=tf.data.experimental.AUTOTUNE
+                )
+            dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+            return dataset
 
-  def _flatten_dims(self, example):
-    """Flatten first 2 dims when batch is independently duplicated."""
+        return input_fn
 
-    def flatten_first_2_dims(t):
-      """Merge first 2 dims."""
-      shape_list = t.shape.as_list()
-      new_bsz = functools.reduce(operator.mul, shape_list[:2])
-      out_shape = [new_bsz] + shape_list[2:]
-      return tf.reshape(t, out_shape)
+    def _flatten_dims(self, example):
+        """Flatten first 2 dims when batch is independently duplicated."""
 
-    return tf.nest.map_structure(flatten_first_2_dims, example)
+        def flatten_first_2_dims(t):
+            """Merge first 2 dims."""
+            shape_list = t.shape.as_list()
+            new_bsz = functools.reduce(operator.mul, shape_list[:2])
+            out_shape = [new_bsz] + shape_list[2:]
+            return tf.reshape(t, out_shape)
 
-  @property
-  @abc.abstractmethod
-  def num_train_examples(self):
-    """Number of training examples."""
+        return tf.nest.map_structure(flatten_first_2_dims, example)
 
-  @property
-  @abc.abstractmethod
-  def num_eval_examples(self):
-    """Number of eval examples."""
+    @property
+    @abc.abstractmethod
+    def num_train_examples(self):
+        """Number of training examples."""
+
+    @property
+    @abc.abstractmethod
+    def num_eval_examples(self):
+        """Number of eval examples."""
 
 
 class TFDSDataset(Dataset):
-  """A dataset created from a TFDS dataset.
+    """A dataset created from a TFDS dataset.
 
     Each example is a dictionary, but the fields may be different for each
     dataset.
@@ -181,111 +189,124 @@ class TFDSDataset(Dataset):
     Each task would have a list of required fields (e.g. bounding boxes for
     object detection). When a dataset is used for a specific task, it should
     contain all the fields required by that task.
-  """
+    """
 
-  def __init__(self, config: ml_collections.ConfigDict):
-    """Constructs the dataset."""
-    super().__init__(config)
-    self.builder = tfds.builder(self.config.tfds_name,
-                                data_dir=self.config.get('data_dir', None))
-    self.builder.download_and_prepare()
-    self.allowed_tasks = []
+    def __init__(self, config: ml_collections.ConfigDict):
+        """Constructs the dataset."""
+        super().__init__(config)
+        self.builder = tfds.builder(
+            self.config.tfds_name, data_dir=self.config.get("data_dir", None)
+        )
+        self.builder.download_and_prepare()
+        self.allowed_tasks = []
 
-  def load_dataset(self, input_context, training):
-    """Load tf.data.Dataset from TFDS."""
-    split = self.config.train_split if training else self.config.eval_split
-    # For TFDS, pass input_context using read_config to make TFDS read
-    # different parts of the dataset on different workers.
-    read_config = tfds.ReadConfig(input_context=input_context)
-    if isinstance(split, list):
-      dataset = self.builder.as_dataset(
-          split=split[0], shuffle_files=training, read_config=read_config)
-      for i in range(1, len(split)):
-        dataset.concatenate(self.builder.as_dataset(
-            split=split[i], shuffle_files=training, read_config=read_config))
-    else:
-      dataset = self.builder.as_dataset(
-          split=split, shuffle_files=training, read_config=read_config)
-    return dataset
+    def load_dataset(self, input_context, training):
+        """Load tf.data.Dataset from TFDS."""
+        split = self.config.train_split if training else self.config.eval_split
+        # For TFDS, pass input_context using read_config to make TFDS read
+        # different parts of the dataset on different workers.
+        read_config = tfds.ReadConfig(input_context=input_context)
+        if isinstance(split, list):
+            dataset = self.builder.as_dataset(
+                split=split[0], shuffle_files=training, read_config=read_config
+            )
+            for i in range(1, len(split)):
+                dataset.concatenate(
+                    self.builder.as_dataset(
+                        split=split[i], shuffle_files=training, read_config=read_config
+                    )
+                )
+        else:
+            dataset = self.builder.as_dataset(
+                split=split, shuffle_files=training, read_config=read_config
+            )
+        return dataset
 
-  @property
-  def num_train_examples(self):
-    return self.builder.info.splits[self.config.train_split].num_examples
+    @property
+    def num_train_examples(self):
+        return self.builder.info.splits[self.config.train_split].num_examples
 
-  @property
-  def num_eval_examples(self):
-    return self.builder.info.splits[
-        self.config.eval_split].num_examples if not self.task_config.get(
-            'unbatch', False) else None
+    @property
+    def num_eval_examples(self):
+        return (
+            self.builder.info.splits[self.config.eval_split].num_examples
+            if not self.task_config.get("unbatch", False)
+            else None
+        )
 
 
 class TFRecordDataset(Dataset):
-  """A dataset created from tfrecord files."""
+    """A dataset created from tfrecord files."""
 
-  def __init__(self, config: ml_collections.ConfigDict):
-    """Constructs the dataset."""
-    super().__init__(config)
-    self.dataset_cls = tf.data.TFRecordDataset
+    def __init__(self, config: ml_collections.ConfigDict):
+        """Constructs the dataset."""
+        super().__init__(config)
+        self.dataset_cls = tf.data.TFRecordDataset
 
-  def load_dataset(self, input_context, training):
-    """Load tf.data.Dataset from TFRecord files."""
-    if training or self.config.eval_split == 'train':
-      file_pattern = self.config.train_file_pattern
-    else:
-      file_pattern = self.config.val_file_pattern
-    dataset = tf.data.Dataset.list_files(file_pattern, shuffle=training)
-    dataset = dataset.interleave(
-        self.dataset_cls, cycle_length=32, deterministic=not training,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    return dataset
-
-  @abc.abstractmethod
-  def get_feature_map(self, training):
-    """Returns feature map(s) for parsing the TFExample.
-
-    Returns a single feature map (a dict) to parse a TFEXample.
-    Returns a tuple of (context feature map, sequence feature map) to parse a
-    TFSequenceExample. Context features are non-sequence features, i.e.
-    independent of time/frame. Sequence features have time/frame dimension.
-
-    Args:
-      training: `bool` of training vs eval mode.
-    """
-
-  def parse_example(self, example, training):
-    """Parse the serialized example into a dictionary of tensors.
-
-    Args:
-      example: the serialized tf.train.Example or tf.train.SequenceExample.
-      training: `bool` of training vs eval mode.
-
-    Returns:
-      a dictionary of feature name to tensors.
-    """
-    feature_map = self.get_feature_map(training)
-    if isinstance(feature_map, dict):
-      example = tf.io.parse_single_example(example, feature_map)
-    else:
-      context_features, sequence_features = feature_map
-      example, sequence = tf.io.parse_single_sequence_example(
-          example, context_features, sequence_features)
-      example.update(sequence)
-
-    for k in example:
-      if isinstance(example[k], tf.SparseTensor):
-        if example[k].dtype == tf.string:
-          example[k] = tf.sparse.to_dense(example[k], default_value='')
+    def load_dataset(self, input_context, training):
+        """Load tf.data.Dataset from TFRecord files."""
+        if training or self.config.eval_split == "train":
+            file_pattern = self.config.train_file_pattern
         else:
-          example[k] = tf.sparse.to_dense(example[k], default_value=0)
-    return example
+            file_pattern = self.config.val_file_pattern
+        dataset = tf.data.Dataset.list_files(file_pattern, shuffle=training)
+        dataset = dataset.interleave(
+            self.dataset_cls,
+            cycle_length=32,
+            deterministic=not training,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        )
+        return dataset
 
-  @property
-  def num_train_examples(self):
-    return self.config.train_num_examples
+    @abc.abstractmethod
+    def get_feature_map(self, training):
+        """Returns feature map(s) for parsing the TFExample.
 
-  @property
-  def num_eval_examples(self):
-    return self.config.eval_num_examples if not self.task_config.get(
-        'unbatch', False) else None
+        Returns a single feature map (a dict) to parse a TFEXample.
+        Returns a tuple of (context feature map, sequence feature map) to parse a
+        TFSequenceExample. Context features are non-sequence features, i.e.
+        independent of time/frame. Sequence features have time/frame dimension.
 
+        Args:
+          training: `bool` of training vs eval mode.
+        """
 
+    def parse_example(self, example, training):
+        """Parse the serialized example into a dictionary of tensors.
+
+        Args:
+          example: the serialized tf.train.Example or tf.train.SequenceExample.
+          training: `bool` of training vs eval mode.
+
+        Returns:
+          a dictionary of feature name to tensors.
+        """
+        feature_map = self.get_feature_map(training)
+        if isinstance(feature_map, dict):
+            example = tf.io.parse_single_example(example, feature_map)
+        else:
+            context_features, sequence_features = feature_map
+            example, sequence = tf.io.parse_single_sequence_example(
+                example, context_features, sequence_features
+            )
+            example.update(sequence)
+
+        for k in example:
+            if isinstance(example[k], tf.SparseTensor):
+                if example[k].dtype == tf.string:
+                    example[k] = tf.sparse.to_dense(example[k], default_value="")
+                else:
+                    example[k] = tf.sparse.to_dense(example[k], default_value=0)
+        return example
+
+    @property
+    def num_train_examples(self):
+        return self.config.train_num_examples
+
+    @property
+    def num_eval_examples(self):
+        return (
+            self.config.eval_num_examples
+            if not self.task_config.get("unbatch", False)
+            else None
+        )

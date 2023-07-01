@@ -28,133 +28,134 @@ TaskRegistry = registry.Registry()
 
 
 class Task(abc.ABC):
-  """Task class.
+    """Task class.
 
-  Providing:
-    - Preprocessing functions for a specific task that turns raw features into
-      inputs in a common interface.
-    - Post-processing functions for a specific task that decode the model's
-      outputs in a common interface.
-    - Evaluation for a specific task.
-    - Important task properties, such as vocab size, max seq len.
-  """
-
-  def __init__(self,
-               config: ml_collections.ConfigDict):
-    self.config = config
-
-    train_transforms = config.task.get('train_transforms', [])
-    eval_transforms = config.task.get('eval_transforms', [])
-    self.train_transforms = [
-        transforms.TransformRegistry.lookup(t.name)(t)
-        for t in train_transforms]
-    self.eval_transforms = [
-        transforms.TransformRegistry.lookup(t.name)(t) for t in eval_transforms]
-
-  @property
-  def task_vocab_id(self):
-    return self.config.task.vocab_id
-
-  @abc.abstractmethod
-  def preprocess_single(self, dataset: tf.data.Dataset, batch_duplicates: int,
-                        training: bool):
-    """Task-specific preprocessing of individual example in the dataset.
-
-    Args:
-      dataset: A tf.data.Dataset.
-      batch_duplicates: `int`, enlarge a batch by augmenting it multiple times
-        (as specified) and concating the augmented examples.
-      training: bool.
-
-    Returns:
-      A dataset.
+    Providing:
+      - Preprocessing functions for a specific task that turns raw features into
+        inputs in a common interface.
+      - Post-processing functions for a specific task that decode the model's
+        outputs in a common interface.
+      - Evaluation for a specific task.
+      - Important task properties, such as vocab size, max seq len.
     """
 
-  def preprocess_single_example(self, example, training, batch_duplicates=1):
-    """Preprocessing of a single example.
+    def __init__(self, config: ml_collections.ConfigDict):
+        self.config = config
 
-    This should be called in preprocess_single.
+        train_transforms = config.task.get("train_transforms", [])
+        eval_transforms = config.task.get("eval_transforms", [])
+        self.train_transforms = [
+            transforms.TransformRegistry.lookup(t.name)(t) for t in train_transforms
+        ]
+        self.eval_transforms = [
+            transforms.TransformRegistry.lookup(t.name)(t) for t in eval_transforms
+        ]
 
-    Args:
-      example: A dict of name to Tensor.
-      training: bool.
-      batch_duplicates: `int`, enlarge a batch by augmenting it multiple times
-        (as specified) and concating the augmented examples.
+    @property
+    def task_vocab_id(self):
+        return self.config.task.vocab_id
 
-    Returns:
-      A dict of name to Tensor.
-    """
-    if training:
-      example_list = []
-      for _ in range(batch_duplicates):
-        example_ = copy.copy(example)
-        for t in self.train_transforms:
-          example_ = t.process_example(example_)
-        example_list.append(example_)
-      example = utils.merge_list_of_dict(example_list)
-    else:
-      for t in self.eval_transforms:
-        example = t.process_example(example)
-    return example
+    @abc.abstractmethod
+    def preprocess_single(
+        self, dataset: tf.data.Dataset, batch_duplicates: int, training: bool
+    ):
+        """Task-specific preprocessing of individual example in the dataset.
 
-  @abc.abstractmethod
-  def preprocess_batched(self, batched_examples, training):
-    """Task-specific preprocessing of batched examples on accelerators (TPUs).
+        Args:
+          dataset: A tf.data.Dataset.
+          batch_duplicates: `int`, enlarge a batch by augmenting it multiple times
+            (as specified) and concating the augmented examples.
+          training: bool.
 
-    Args:
-      batched_examples: preprocessed and batched examples.
-      training: bool.
+        Returns:
+          A dataset.
+        """
 
-    Returns batched inputs in a comon interface for modeling.
-    """
+    def preprocess_single_example(self, example, training, batch_duplicates=1):
+        """Preprocessing of a single example.
 
-  @abc.abstractmethod
-  def postprocess_tpu(self):
-    """Task-specific post processing on accelerators (TPUs).
+        This should be called in preprocess_single.
 
-    This is intended for inference / evaluation time only.
+        Args:
+          example: A dict of name to Tensor.
+          training: bool.
+          batch_duplicates: `int`, enlarge a batch by augmenting it multiple times
+            (as specified) and concating the augmented examples.
 
-    Returns a list of tensors for `postprocess_cpu` to further process.
-    """
+        Returns:
+          A dict of name to Tensor.
+        """
+        if training:
+            example_list = []
+            for _ in range(batch_duplicates):
+                example_ = copy.copy(example)
+                for t in self.train_transforms:
+                    example_ = t.process_example(example_)
+                example_list.append(example_)
+            example = utils.merge_list_of_dict(example_list)
+        else:
+            for t in self.eval_transforms:
+                example = t.process_example(example)
+        return example
 
-  @abc.abstractmethod
-  def postprocess_cpu(self):
-    """Task-specific post processing on CPUs.
+    @abc.abstractmethod
+    def preprocess_batched(self, batched_examples, training):
+        """Task-specific preprocessing of batched examples on accelerators (TPUs).
 
-    This is intended for inference / evaluation time only.
+        Args:
+          batched_examples: preprocessed and batched examples.
+          training: bool.
 
-    It receives outputs from `postprocess_tpu`, further processes, and update
-      internal states (e.g. _metrics).
-    """
+        Returns batched inputs in a comon interface for modeling.
+        """
 
-  def _log_metrics(self, metrics_dict, step):
-    for key, value in metrics_dict.items():
-      logging.info('Step: [%d] %s = %f', step, key, value)
-      tf.summary.scalar(key, value, step)
+    @abc.abstractmethod
+    def postprocess_tpu(self):
+        """Task-specific post processing on accelerators (TPUs).
 
-  def evaluate(self, summary_writer, step, eval_tag):
-    """Evaluate results on accumulated outputs (after multiple infer steps).
+        This is intended for inference / evaluation time only.
 
-    Args:
-      summary_writer: the summary writer.
-      step: current step.
-      eval_tag: `string` name scope for eval result summary.
+        Returns a list of tensors for `postprocess_cpu` to further process.
+        """
 
-    Returns:
-      result as a `dict`.
-    """
-    metrics = self.compute_scalar_metrics(step)
-    with summary_writer.as_default():
-      with tf.name_scope(eval_tag):
-        self._log_metrics(metrics, step)
-      summary_writer.flush()
-    self.reset_metrics()
-    return metrics
+    @abc.abstractmethod
+    def postprocess_cpu(self):
+        """Task-specific post processing on CPUs.
 
-  @abc.abstractmethod
-  def compute_scalar_metrics(self, step):
-    """Returns a dict containing scalar metrics to log."""
+        This is intended for inference / evaluation time only.
 
-  @abc.abstractmethod
-  def reset_metrics(self):
-    """Reset states of metrics accumulators."""
+        It receives outputs from `postprocess_tpu`, further processes, and update
+          internal states (e.g. _metrics).
+        """
+
+    def _log_metrics(self, metrics_dict, step):
+        for key, value in metrics_dict.items():
+            logging.info("Step: [%d] %s = %f", step, key, value)
+            tf.summary.scalar(key, value, step)
+
+    def evaluate(self, summary_writer, step, eval_tag):
+        """Evaluate results on accumulated outputs (after multiple infer steps).
+
+        Args:
+          summary_writer: the summary writer.
+          step: current step.
+          eval_tag: `string` name scope for eval result summary.
+
+        Returns:
+          result as a `dict`.
+        """
+        metrics = self.compute_scalar_metrics(step)
+        with summary_writer.as_default():
+            with tf.name_scope(eval_tag):
+                self._log_metrics(metrics, step)
+            summary_writer.flush()
+        self.reset_metrics()
+        return metrics
+
+    @abc.abstractmethod
+    def compute_scalar_metrics(self, step):
+        """Returns a dict containing scalar metrics to log."""
+
+    @abc.abstractmethod
+    def reset_metrics(self):
+        """Reset states of metrics accumulators."""

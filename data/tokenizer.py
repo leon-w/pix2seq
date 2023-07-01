@@ -22,53 +22,52 @@ import tensorflow_text as tf_text
 
 
 class Tokenizer(abc.ABC):
-  """Tokenizer base class."""
+    """Tokenizer base class."""
 
-  def __init__(self):
-    pass
+    def __init__(self):
+        pass
 
-  @property
-  @abc.abstractmethod
-  def vocab_size(self):
-    """Vocab size."""
+    @property
+    @abc.abstractmethod
+    def vocab_size(self):
+        """Vocab size."""
 
-  @abc.abstractmethod
-  def string_to_ids(self, string):
-    """Tokenize a single string."""
+    @abc.abstractmethod
+    def string_to_ids(self, string):
+        """Tokenize a single string."""
 
-  @abc.abstractmethod
-  def strings_to_ids(self, strings):
-    """Tokenize a batch of strings."""
+    @abc.abstractmethod
+    def strings_to_ids(self, strings):
+        """Tokenize a batch of strings."""
 
-  @abc.abstractmethod
-  def ids_to_strings(self, ids, ids_len):
-    """Detokenize a batch of ids."""
+    @abc.abstractmethod
+    def ids_to_strings(self, ids, ids_len):
+        """Detokenize a batch of ids."""
 
 
 class SPTokenizer(Tokenizer):
-  """Sentence Piece Tokenizer."""
+    """Sentence Piece Tokenizer."""
 
-  def __init__(self, model_path, add_bos=False, add_eos=False):
-    super(SPTokenizer, self).__init__()
-    self.model_path = model_path
-    with tf.io.gfile.GFile(model_path, "rb") as f:
-      model = f.read()
-      self.tokenizer = tf_text.SentencepieceTokenizer(model,
-                                                      out_type=tf.string,
-                                                      add_bos=add_bos,
-                                                      add_eos=add_eos)
+    def __init__(self, model_path, add_bos=False, add_eos=False):
+        super(SPTokenizer, self).__init__()
+        self.model_path = model_path
+        with tf.io.gfile.GFile(model_path, "rb") as f:
+            model = f.read()
+            self.tokenizer = tf_text.SentencepieceTokenizer(
+                model, out_type=tf.string, add_bos=add_bos, add_eos=add_eos
+            )
 
-  @property
-  def vocab_size(self):
-    return int(self.tokenizer.vocab_size().numpy())
+    @property
+    def vocab_size(self):
+        return int(self.tokenizer.vocab_size().numpy())
 
-  def string_to_ids(self, string):
-    tokens = self.tokenizer.tokenize(string)
-    pieces = self.tokenizer.string_to_id(tokens)
-    return tf.cast(pieces, tf.int64)
+    def string_to_ids(self, string):
+        tokens = self.tokenizer.tokenize(string)
+        pieces = self.tokenizer.string_to_id(tokens)
+        return tf.cast(pieces, tf.int64)
 
-  def strings_to_ids(self, strings):
-    return self.string_to_ids(strings)
+    def strings_to_ids(self, strings):
+        return self.string_to_ids(strings)
 
-  def ids_to_strings(self, ids, ids_len):
-    return self.tokenizer.detokenize(ids)
+    def ids_to_strings(self, ids, ids_len):
+        return self.tokenizer.detokenize(ids)

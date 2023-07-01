@@ -26,145 +26,144 @@ from configs.config_base import D
 
 
 def get_config(config_str=None):
-  """config_str is either empty or contains task,architecture variants."""
+    """config_str is either empty or contains task,architecture variants."""
 
-  task_variant = 'object_detection@coco/2017_object_detection'
-  encoder_variant = 'vit-b'                 # Set model architecture.
-  image_size = (640, 640)                   # Set image size.
+    task_variant = "object_detection@coco/2017_object_detection"
+    encoder_variant = "vit-b"  # Set model architecture.
+    image_size = (640, 640)  # Set image size.
+
+    tasks_and_datasets = []
+    for task_and_ds in task_variant.split("+"):
+        tasks_and_datasets.append(task_and_ds.split("@"))
+
+    max_instances_per_image = 100
+    max_instances_per_image_test = 100
+
+    task_config_map = {
+        "object_detection": D(
+            name="object_detection",
+            vocab_id=10,
+            image_size=image_size,
+            quantization_bins=1000,
+            max_instances_per_image=max_instances_per_image,
+            max_instances_per_image_test=max_instances_per_image_test,
+            train_transforms=transform_configs.get_object_detection_train_transforms(
+                image_size, max_instances_per_image
+            ),
+            eval_transforms=transform_configs.get_object_detection_eval_transforms(
+                image_size, max_instances_per_image_test
+            ),
+            # Train on both ground-truth and (augmented) noisy objects.
+            noise_bbox_weight=1.0,
+            eos_token_weight=0.1,
+            # Train on just ground-truth objects (with an ending token).
+            # noise_bbox_weight=0.0,
+            # eos_token_weight=0.1,
+            class_label_corruption="rand_n_fake_cls",
+            top_k=0,
+            top_p=0.4,
+            temperature=1.0,
+            weight=1.0,
+            metric=D(
+                name="coco_object_detection",
+            ),
+        ),
+    }
+
+    task_d_list = []
+    dataset_list = []
+    for tv, ds_name in tasks_and_datasets:
+        task_d_list.append(task_config_map[tv])
+        dataset_config = copy.deepcopy(dataset_configs.dataset_configs[ds_name])
+        dataset_list.append(dataset_config)
+
+    config = D(
+        dataset=dataset_list[0],
+        datasets=dataset_list,
+        task=task_d_list[0],
+        tasks=task_d_list,
+        model=D(
+            name="encoder_ar_decoder",
+            image_size=image_size,
+            max_seq_len=512,
+            vocab_size=3000,  # Note: should be large enough for 100 + num_classes + quantization_bins + (optional) text
+            coord_vocab_shift=1000,  # Note: make sure num_class <= coord_vocab_shift - 100
+            text_vocab_shift=3000,  # Note: make sure coord_vocab_shift + quantization_bins <= text_vocab_shift
+            use_cls_token=False,
+            shared_decoder_embedding=True,
+            decoder_output_bias=True,
+            patch_size=16,
+            drop_path=0.1,
+            drop_units=0.1,
+            drop_att=0.0,
+            dec_proj_mode="mlp",
+            pos_encoding="sin_cos",
+            pos_encoding_dec="learned",
+            pretrained_ckpt=get_obj365_pretrained_checkpoint(encoder_variant),
+        ),
+        optimization=D(
+            optimizer="adamw",
+            learning_rate=3e-5,
+            end_lr_factor=0.01,
+            warmup_epochs=2,
+            warmup_steps=0,  # set to >0 to override warmup_epochs.
+            weight_decay=0.05,
+            global_clipnorm=-1,
+            beta1=0.9,
+            beta2=0.95,
+            eps=1e-8,
+            learning_rate_schedule="linear",
+            learning_rate_scaling="none",
+        ),
+        train=D(
+            batch_size=32,
+            epochs=40,
+            steps=0,  # set to >0 to override epochs.
+            checkpoint_epochs=1,
+            checkpoint_steps=0,  # set to >0 to override checkpoint_epochs.
+            keep_checkpoint_max=5,
+            loss_type="xent",
+        ),
+        eval=D(
+            tag="eval",
+            checkpoint_dir="",  # checkpoint_dir will be model_dir if not set.
+            # checkpoint_dir=get_coco_finetuned_checkpoint(encoder_variant, image_size[0]),
+            batch_size=8,  # needs to be divisible by total eval examples.
+            steps=0,  # 0 means eval over full validation set.
+        ),
+    )
+
+    # Update model with architecture variant.
+    for key, value in architecture_config_map[encoder_variant].items():
+        config.model[key] = value
+
+    return config
 
 
-  tasks_and_datasets = []
-  for task_and_ds in task_variant.split('+'):
-    tasks_and_datasets.append(task_and_ds.split('@'))
-
-  max_instances_per_image = 100
-  max_instances_per_image_test = 100
-
-  task_config_map = {
-      'object_detection': D(
-          name='object_detection',
-          vocab_id=10,
-          image_size=image_size,
-          quantization_bins=1000,
-          max_instances_per_image=max_instances_per_image,
-          max_instances_per_image_test=max_instances_per_image_test,
-          train_transforms=transform_configs.get_object_detection_train_transforms(
-              image_size, max_instances_per_image),
-          eval_transforms=transform_configs.get_object_detection_eval_transforms(
-              image_size, max_instances_per_image_test),
-          # Train on both ground-truth and (augmented) noisy objects.
-          noise_bbox_weight=1.0,
-          eos_token_weight=0.1,
-          # Train on just ground-truth objects (with an ending token).
-          # noise_bbox_weight=0.0,
-          # eos_token_weight=0.1,
-          class_label_corruption='rand_n_fake_cls',
-          top_k=0,
-          top_p=0.4,
-          temperature=1.0,
-          weight=1.0,
-          metric=D(name='coco_object_detection',),
-      ),
-  }
-
-  task_d_list = []
-  dataset_list = []
-  for tv, ds_name in tasks_and_datasets:
-    task_d_list.append(task_config_map[tv])
-    dataset_config = copy.deepcopy(dataset_configs.dataset_configs[ds_name])
-    dataset_list.append(dataset_config)
-
-  config = D(
-      dataset=dataset_list[0],
-      datasets=dataset_list,
-
-      task=task_d_list[0],
-      tasks=task_d_list,
-
-      model=D(
-          name='encoder_ar_decoder',
-          image_size=image_size,
-          max_seq_len=512,
-          vocab_size=3000,                  # Note: should be large enough for 100 + num_classes + quantization_bins + (optional) text
-          coord_vocab_shift=1000,           # Note: make sure num_class <= coord_vocab_shift - 100
-          text_vocab_shift=3000,            # Note: make sure coord_vocab_shift + quantization_bins <= text_vocab_shift
-          use_cls_token=False,
-          shared_decoder_embedding=True,
-          decoder_output_bias=True,
-          patch_size=16,
-          drop_path=0.1,
-          drop_units=0.1,
-          drop_att=0.0,
-          dec_proj_mode='mlp',
-          pos_encoding='sin_cos',
-          pos_encoding_dec='learned',
-          pretrained_ckpt=get_obj365_pretrained_checkpoint(encoder_variant),
-      ),
-
-      optimization=D(
-          optimizer='adamw',
-          learning_rate=3e-5,
-          end_lr_factor=0.01,
-          warmup_epochs=2,
-          warmup_steps=0,                   # set to >0 to override warmup_epochs.
-          weight_decay=0.05,
-          global_clipnorm=-1,
-          beta1=0.9,
-          beta2=0.95,
-          eps=1e-8,
-          learning_rate_schedule='linear',
-          learning_rate_scaling='none',
-      ),
-
-      train=D(
-          batch_size=32,
-          epochs=40,
-          steps=0,                          # set to >0 to override epochs.
-          checkpoint_epochs=1,
-          checkpoint_steps=0,               # set to >0 to override checkpoint_epochs.
-          keep_checkpoint_max=5,
-          loss_type='xent',
-      ),
-
-      eval=D(
-          tag='eval',
-          checkpoint_dir='',                # checkpoint_dir will be model_dir if not set.
-          # checkpoint_dir=get_coco_finetuned_checkpoint(encoder_variant, image_size[0]),
-          batch_size=8,                     # needs to be divisible by total eval examples.
-          steps=0,                          # 0 means eval over full validation set.
-      ),
-  )
-
-  # Update model with architecture variant.
-  for key, value in architecture_config_map[encoder_variant].items():
-    config.model[key] = value
-
-  return config
-
-CKPT_PREFIX = 'gs://pix2seq'
+CKPT_PREFIX = "gs://pix2seq"
 
 
 def get_obj365_pretrained_checkpoint(encoder_variant):
-  if encoder_variant == 'resnet':
-    return f'{CKPT_PREFIX}/obj365_pretrain/resnet_640x640_b256_s400k'
-  elif encoder_variant == 'resnet-c':
-    return f'{CKPT_PREFIX}/obj365_pretrain/resnetc_640x640_b256_s400k'
-  elif encoder_variant == 'vit-b':
-    return f'{CKPT_PREFIX}/obj365_pretrain/vit_b_640x640_b256_s400k'
-  elif encoder_variant == 'vit-l':
-    return f'{CKPT_PREFIX}/obj365_pretrain/vit_l_640x640_b256_s400k'
-  else:
-    raise ValueError('Unknown encoder_variant {}'.format(encoder_variant))
+    if encoder_variant == "resnet":
+        return f"{CKPT_PREFIX}/obj365_pretrain/resnet_640x640_b256_s400k"
+    elif encoder_variant == "resnet-c":
+        return f"{CKPT_PREFIX}/obj365_pretrain/resnetc_640x640_b256_s400k"
+    elif encoder_variant == "vit-b":
+        return f"{CKPT_PREFIX}/obj365_pretrain/vit_b_640x640_b256_s400k"
+    elif encoder_variant == "vit-l":
+        return f"{CKPT_PREFIX}/obj365_pretrain/vit_l_640x640_b256_s400k"
+    else:
+        raise ValueError("Unknown encoder_variant {}".format(encoder_variant))
 
 
 def get_coco_finetuned_checkpoint(encoder_variant, image_size):
-  if encoder_variant == 'resnet':
-    return f'{CKPT_PREFIX}/coco_det_finetune/resnet_{image_size}x{image_size}'
-  elif encoder_variant == 'resnet-c':
-    return f'{CKPT_PREFIX}/coco_det_finetune/resnetc_{image_size}x{image_size}'
-  elif encoder_variant == 'vit-b':
-    return f'{CKPT_PREFIX}/coco_det_finetune/vit_b_{image_size}x{image_size}'
-  elif encoder_variant == 'vit-l':
-    return f'{CKPT_PREFIX}/coco_det_finetune/vit_l_{image_size}x{image_size}'
-  else:
-    raise ValueError('Unknown encoder_variant {}'.format(encoder_variant))
+    if encoder_variant == "resnet":
+        return f"{CKPT_PREFIX}/coco_det_finetune/resnet_{image_size}x{image_size}"
+    elif encoder_variant == "resnet-c":
+        return f"{CKPT_PREFIX}/coco_det_finetune/resnetc_{image_size}x{image_size}"
+    elif encoder_variant == "vit-b":
+        return f"{CKPT_PREFIX}/coco_det_finetune/vit_b_{image_size}x{image_size}"
+    elif encoder_variant == "vit-l":
+        return f"{CKPT_PREFIX}/coco_det_finetune/vit_l_{image_size}x{image_size}"
+    else:
+        raise ValueError("Unknown encoder_variant {}".format(encoder_variant))

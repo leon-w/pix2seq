@@ -19,12 +19,12 @@ import ml_collections
 
 
 def D(**kwargs):
-  return ml_collections.ConfigDict(initial_dictionary=kwargs)
+    return ml_collections.ConfigDict(initial_dictionary=kwargs)
 
 
 architecture_config_map = {
-    'vit-b': D(
-        resnet_variant='c1',
+    "vit-b": D(
+        resnet_variant="c1",
         num_encoder_layers=12,
         dim_att=768,
         dim_mlp=3072,
@@ -34,8 +34,8 @@ architecture_config_map = {
         dim_mlp_dec=2048,
         num_heads_dec=16,
     ),
-    'vit-l': D(
-        resnet_variant='c1',
+    "vit-l": D(
+        resnet_variant="c1",
         num_encoder_layers=24,
         dim_att=1024,
         dim_mlp=4096,
@@ -45,10 +45,10 @@ architecture_config_map = {
         dim_mlp_dec=2048,
         num_heads_dec=16,
     ),
-    'resnet': D(
-        resnet_variant='standard',
+    "resnet": D(
+        resnet_variant="standard",
         resnet_depth=50,
-        resnet_sk_ratio=0.,
+        resnet_sk_ratio=0.0,
         resnet_width_multiplier=1,
         num_encoder_layers=6,
         dim_att=256,
@@ -59,10 +59,10 @@ architecture_config_map = {
         dim_mlp_dec=1024,
         num_heads_dec=8,
     ),
-    'resnet-c': D(
-        resnet_variant='c4',
+    "resnet-c": D(
+        resnet_variant="c4",
         resnet_depth=50,
-        resnet_sk_ratio=0.,
+        resnet_sk_ratio=0.0,
         resnet_width_multiplier=1,
         num_encoder_layers=12,
         dim_att=512,

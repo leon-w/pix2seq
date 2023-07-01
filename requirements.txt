@@ -6,3 +6,5 @@ tensorflow-addons
 tensorflow-text
 pycocotools
 scikit-image
+tensorflow-gan
+einops

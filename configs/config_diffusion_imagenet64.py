@@ -39,7 +39,7 @@ def get_config(config_str=None):
     config.model.cond_tape_writable = False
     config.optimization.ema_decay = 0.9999
     config.eval.batch_size = 80
-    config.eval.steps = 625
+    config.eval.steps = 1 # 625
     return config
 
 

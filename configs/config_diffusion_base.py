@@ -222,6 +222,7 @@ def get_config(config_str=None):
             checkpoint_dir="",
             batch_size=64,
             steps=100,  # this is an approximation.
+            write_images_to_file=True,
         ),
     )
 

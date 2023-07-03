@@ -21,6 +21,8 @@ import json
 import os
 import time
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 from absl import app
 from absl import flags
 from absl import logging

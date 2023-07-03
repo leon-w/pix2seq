@@ -190,7 +190,8 @@ class Model(tf.keras.models.Model):
         )
         samples = samples / config.b_scale / 2.0 + 0.5  # convert -s,s -> 0,1
 
-        if "images" in kwargs and "labels" in kwargs:
+        if False and "images" in kwargs and "labels" in kwargs:
+            # since self does not have the method images2tokens, we skip this part.
             images = self.images2tokens(kwargs["images"])
             images, noise, _, pred_dict = self.noise_denoise(images, kwargs["labels"], time_step=None, training=False)
             loss = self.compute_loss(images, noise, pred_dict)

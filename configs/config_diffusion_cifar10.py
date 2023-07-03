@@ -34,7 +34,8 @@ def get_config(config_str=None):
     config.model.conditional = "class"
     config.optimization.ema_decay = 0.9999
     config.eval.batch_size = 80
-    config.eval.steps = 625
+    config.eval.steps = 1 # 625
+    config.eval.write_images_to_file = True
     return config
 
 

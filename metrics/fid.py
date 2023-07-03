@@ -86,8 +86,8 @@ class TFGANMetricEvaluator:
         if self.dataset_name == "cifar10":
             # filename = "{}/cifar10_stats_real.npy".format(stats_path)
             # since we don't have cifar10_stats_real.npy, we generate dummy stats
-            mu = np.random.randn((2048,))
-            cov = np.random.randn((2048, 2048))
+            mu = np.random.randn(2048)
+            cov = np.random.randn(2048, 2048)
             return mu, cov
         elif self.dataset_name == "downsampled_imagenet/64x64":
             filename = "{}/imagenet64_stats_real.npz".format(stats_path)

@@ -4,8 +4,8 @@
 #SBATCH --error=slurm/slurm-%j.err
 #SBATCH --chdir=/usr/stud/wiemers/tmp/pix2seq
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1,VRAM:48G
-#SBATCH --cpus-per-task=4
+#SBATCH --gres=gpu:4,VRAM:48G
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 #SBATCH --time=4-00:00:00
 #SBATCH --mail-type=ALL

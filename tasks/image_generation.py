@@ -34,9 +34,9 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
         super().__init__(config)
         self._metrics = {}
         self._metrics["eval_loss"] = tf.keras.metrics.Mean("eval_loss")
-        # self._tfgan_evaluator = TFGANMetricEvaluator(
-        #     dataset_name=config.dataset.tfds_name, image_size=config.dataset.image_size
-        # )
+        self._tfgan_evaluator = TFGANMetricEvaluator(
+            dataset_name=config.dataset.tfds_name, image_size=config.dataset.image_size
+        )
 
         self._write_images_to_file = config.eval.get("write_images_to_file", False)
         if self._write_images_to_file:
@@ -141,16 +141,13 @@ class TaskImageGeneration(task_lib.Task):  # pytype: disable=base-class-error
             images = samples
 
         # FID
-        # data_real, data_gen = self._tfgan_evaluator.preprocess_inputs(
-        #     [images, samples], is_n1p1=False
-        # )
+        data_real, data_gen = self._tfgan_evaluator.preprocess_inputs(
+            [images, samples], is_n1p1=False
+        )
         (logits_real, pool3_real), (
             logits_gen,
             pool3_gen,
-        ) = (None, None), (
-            None,
-            None,
-        )  # self._tfgan_evaluator.get_inception_stats([data_real, data_gen])
+        ) = self._tfgan_evaluator.get_inception_stats([data_real, data_gen])
 
         logging.info("postprocess_tpu done.")
         return (images, samples, logits_real, pool3_real, logits_gen, pool3_gen)

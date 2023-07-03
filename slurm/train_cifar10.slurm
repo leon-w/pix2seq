@@ -27,4 +27,4 @@ unset __conda_setup
 # <<< conda initialize <<<
 
 conda activate pix2seq
-python run.py --config configs/config_diffusion_cifar10.py --mode train --model_dir slurm/results/cifar10
+python run.py --config configs/config_diffusion_cifar10.py --mode train --model_dir slurm/results/cifar10 --config.train.epochs=1000 --config.train.checkpoint_epochs=10

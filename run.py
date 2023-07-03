@@ -54,6 +54,9 @@ from tasks import object_detection
 # pylint: enable=unused-import
 from tasks import task as task_lib
 import tensorflow as tf
+import wandb
+
+from einops import rearrange
 
 
 TRAIN = "train"
@@ -136,6 +139,10 @@ def build_tasks_and_datasets(config: ml_collections.ConfigDict, training: bool):
 def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
     """Perform evaluation."""
     eval_tag = config.eval.tag
+
+    wandb.tensorboard.patch(root_logdir=FLAGS.model_dir)
+    wandb.init(project="pix2seq", config=config, sync_tensorboard=True)
+
     summary_writer = tf.summary.create_file_writer(FLAGS.model_dir)
 
     with strategy.scope():
@@ -213,6 +220,9 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
 def perform_training(config, datasets, tasks, train_steps, steps_per_loop, num_train_examples, strategy):
     """Main training logic."""
     with strategy.scope():
+        wandb.tensorboard.patch(root_logdir=FLAGS.model_dir)
+        wandb.init(project="pix2seq", config=config, sync_tensorboard=True)
+
         # Setup training elements.
         trainer = model_lib.TrainerRegistry.lookup(config.model.name)(
             config,
@@ -257,9 +267,26 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop, num_t
                 "Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins".format(cur_step, train_steps, progress, eta)
             )
             trainer.reset()
+
+            # generate samples and upload to wandb
+            n_samples_sqrt = 8
+            n_samples = n_samples_sqrt * n_samples_sqrt
+            samples, loss = trainer.model.sample(num_samples=n_samples)
+            samples = samples.numpy()
+            sample_grid = rearrange(samples, "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n_samples_sqrt)
+            wandb.log(
+                {
+                    "samples": wandb.Image(sample_grid),
+                    "loss": loss.numpy(),
+                    "step": cur_step,
+                }
+            )
+
         logging.info("###########################################")
         logging.info("Training complete...")
         logging.info("###########################################")
+
+        wandb.finish()
 
 
 def main(unused_argv):

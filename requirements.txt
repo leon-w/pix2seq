@@ -8,3 +8,4 @@ pycocotools
 scikit-image
 tensorflow-gan
 einops
+wandb

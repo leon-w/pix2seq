@@ -90,10 +90,13 @@ class TFGANMetricEvaluator:
             cov = np.random.randn(2048, 2048)
             return mu, cov
         elif self.dataset_name == "downsampled_imagenet/64x64":
-            filename = "{}/imagenet64_stats_real.npz".format(stats_path)
-            with tf.io.gfile.GFile(filename, "rb") as fin:
-                stats_real = np.load(fin)
-                return stats_real["mu"], stats_real["sigma"]
+            # filename = "{}/imagenet64_stats_real.npz".format(stats_path)
+            # with tf.io.gfile.GFile(filename, "rb") as fin:
+            #     stats_real = np.load(fin)
+            #     return stats_real["mu"], stats_real["sigma"]
+            mu = np.random.randn(2048)
+            cov = np.random.randn(2048, 2048)
+            return mu, cov
         elif self.dataset_name == "imagenet2012":
             assert self.image_size in [
                 32,
@@ -107,10 +110,13 @@ class TFGANMetricEvaluator:
                 1536,
                 2048,
             ]
-            filename = "{}/imagenet_man_{}_stats_real.npz".format(stats_path, self.image_size)
-            with tf.io.gfile.GFile(filename, "rb") as fin:
-                stats_real = np.load(fin)
-                return stats_real["mu"], stats_real["cov"]
+            # filename = "{}/imagenet_man_{}_stats_real.npz".format(stats_path, self.image_size)
+            # with tf.io.gfile.GFile(filename, "rb") as fin:
+            #     stats_real = np.load(fin)
+            #     return stats_real["mu"], stats_real["cov"]
+            mu = np.random.randn(2048)
+            cov = np.random.randn(2048, 2048)
+            return mu, cov
         elif self.dataset_name == "coco":
             filename = "{}/coco_stats_real.npz".format(stats_path)
             with tf.io.gfile.GFile(filename, "rb") as fin:

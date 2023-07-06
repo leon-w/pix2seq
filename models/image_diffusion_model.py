@@ -188,9 +188,8 @@ class Model(tf.keras.models.Model):
     samples = (samples / config.b_scale / 2. + 0.5)  # convert -s,s -> 0,1
 
     if 'images' in kwargs and 'labels' in kwargs:
-      images = self.images2tokens(kwargs['images'])
       images, noise, _, pred_dict = self.noise_denoise(
-          images, kwargs['labels'], time_step=None, training=False)
+          kwargs['images'], kwargs['labels'], time_step=None, training=False)
       loss = self.compute_loss(images, noise, pred_dict)
     else:
       loss = tf.constant(-1.0, dtype=tf.float32)
@@ -373,6 +372,8 @@ class ModelT(Model):
         [self.image_size, self.image_size])
 
   def sample(self, num_samples=100, iterations=100, method='ddim', **kwargs):
+    if 'images' in kwargs and 'labels' in kwargs:
+      kwargs['images'] = self.images2tokens(kwargs['images'])
     samples, loss = super().sample(num_samples, iterations, method, **kwargs)
     return self.tokens2images(samples), loss
 

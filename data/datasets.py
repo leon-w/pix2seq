@@ -16,3 +16,5 @@
 """All registered datasets."""
 
 from data import coco  # pylint: disable=unused-import
+# causes a key error in the registry if not imported
+from data import recognition  # pylint: disable=unused-import

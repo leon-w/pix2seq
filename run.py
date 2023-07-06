@@ -35,7 +35,8 @@ from metrics import coco_metrics  # pylint: disable=unused-import
 from models import ar_model  # pylint: disable=unused-import
 from models import image_ar_model  # pylint: disable=unused-import
 from models import image_diffusion_model  # pylint: disable=unused-import
-from models import latent_diffusion_model  # pylint: disable=unused-import
+# currently does not exist in the repo
+# from models import latent_diffusion_model  # pylint: disable=unused-import
 from models import video_diffusion_model  # pylint: disable=unused-import
 from models import image_discrete_diffusion_model  # pylint: disable=unused-import
 from models import model as model_lib

@@ -22,9 +22,13 @@ import registry
 import utils
 from models import model_utils
 import tensorflow as tf
+import einops
+from PIL import Image
 
 ModelRegistry = registry.Registry()
 TrainerRegistry = registry.Registry()
+
+from debug_utils import p
 
 
 class Trainer(abc.ABC):
@@ -106,6 +110,19 @@ class Trainer(abc.ABC):
         loss = 0
         grads = []
         for i, (o, task) in enumerate(zip(preprocessed_outputs, tasks)):
+            ## DEBUG
+            # imgs, labels = o
+            
+            # imgs = imgs.numpy()
+            # labels = labels.numpy()
+
+            # p("Labels:", labels)
+
+            # imgs = einops.rearrange(imgs, '(b1 b2) h w c -> (b1 h) (b2 w) c', b1=8, b2=8)
+            # imgs = (imgs * 255).astype('uint8')
+
+            # Image.fromarray(imgs).show()
+
             with tf.GradientTape() as tape:
                 loss_t = self.compute_loss(o)
                 task_loss_metrics[f"loss_{task.config.task.name}"] = loss_t

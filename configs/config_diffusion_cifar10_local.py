@@ -24,7 +24,7 @@ def get_config(config_str=None):
     """Returns config."""
     del config_str
     config = config_base.get_config()
-    config.train.batch_size = 256
+    config.train.batch_size = 64
     config.train.checkpoint_steps = 1
 
     return config

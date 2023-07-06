@@ -23,6 +23,9 @@ import time
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
+import tensorflow as tf
+tf.config.run_functions_eagerly(True)
+
 from absl import app
 from absl import flags
 from absl import logging
@@ -53,7 +56,6 @@ from tasks import object_detection
 
 # pylint: enable=unused-import
 from tasks import task as task_lib
-import tensorflow as tf
 import wandb
 
 from einops import rearrange

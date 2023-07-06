@@ -35,6 +35,8 @@ def get_config(config_str=None):
   config.optimization.ema_decay = 0.9999
   config.eval.batch_size = 80
   config.eval.steps = 625
+  # we want to save the images to manually inspect them
+  config.eval.write_images_to_file = True
   return config
 
 

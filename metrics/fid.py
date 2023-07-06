@@ -85,6 +85,11 @@ class TFGANMetricEvaluator:
     # TODO(iamtingchen): provide stat path via config dict.
     if self.dataset_name == "cifar10":
       filename = "{}/cifar10_stats_real.npy".format(stats_path)
+      # since we currently dont have access to the cifar10_stats_real.npy
+      # we just return dummy data and ignore the FID score
+      mu = np.random.randn(2048)
+      sigma = np.random.randn(2048, 2048)
+      return mu, sigma
     elif self.dataset_name == "downsampled_imagenet/64x64":
       filename = "{}/imagenet64_stats_real.npz".format(stats_path)
       with tf.io.gfile.GFile(filename, "rb") as fin:

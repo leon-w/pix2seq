@@ -51,6 +51,9 @@ from tasks import object_detection
 from tasks import task as task_lib
 import tensorflow as tf
 
+import wandb
+from einops import rearrange
+
 
 TRAIN = 'train'
 EVAL = 'eval'
@@ -215,6 +218,10 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
                      num_train_examples, strategy):
   """Main training logic."""
   with strategy.scope():
+    wandb.tensorboard.patch(root_logdir=FLAGS.model_dir)
+    name = f'{config.model.arch_name}_{config.dataset.tfds_name}'
+    wandb.init(project="pix2seq", name=name, config=utils.config_to_dict(config), sync_tensorboard=True)
+
     # Setup training elements.
     trainer = model_lib.TrainerRegistry.lookup(config.model.name)(
         config, model_dir=FLAGS.model_dir,
@@ -258,6 +265,13 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
       logging.info('Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins'.format(
           cur_step, train_steps, progress, eta))
       trainer.reset()
+
+      # generate samples and upload to wandb
+      n = 8
+      samples, _ = trainer.model.sample(num_samples=n*n)
+      sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
+      wandb.log({"samples": wandb.Image(sample_grid), "step": cur_step})
+
     logging.info('###########################################')
     logging.info('Training complete...')
     logging.info('###########################################')

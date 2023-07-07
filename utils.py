@@ -31,6 +31,7 @@ import numpy as np
 
 import vocab
 import tensorflow as tf
+from ml_collections import ConfigDict
 
 
 def json_serializable(val):
@@ -539,3 +540,19 @@ def run_in_parallel(fns):
     tasks = [executor.submit(fn) for fn in fns]
     for task in tasks:
       task.result()
+
+
+def config_to_dict(config):
+    """
+    Converts a ConfigDict to a dict.
+
+    Wraps around the to_dict() method but also converts
+    any ConfigDicts inside lists to dicts.
+    """
+
+    config_dict = config.to_dict()
+    for key, value in config_dict.items():
+        if isinstance(value, list):
+            config_dict[key] = [config_to_dict(item) if isinstance(item, ConfigDict) else item for item in value]
+
+    return config_dict

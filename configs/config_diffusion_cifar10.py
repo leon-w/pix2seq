@@ -18,6 +18,7 @@
 # pylint: disable=invalid-name,line-too-long
 
 from configs import config_diffusion_base as config_base
+from configs.sweeper import Sweeper
 
 DATA_NAME = 'cifar10'
 ARCH_VARIANT = 'tape'
@@ -33,10 +34,15 @@ def get_config(config_str=None):
   config.model.pred_type = 'eps'
   config.model.conditional = 'class'
   config.optimization.ema_decay = 0.9999
-  config.eval.batch_size = 80
-  config.eval.steps = 625
-  # we want to save the images to manually inspect them
+
+  config.eval.batch_size = 64
+  config.eval.steps = 2
   config.eval.write_images_to_file = True
+
+  # use the config from the sweep to update the config
+  sweep = get_sweep(Sweeper(remove_prefix='config.'))[0]
+  config.update_from_flattened_dict(sweep)
+
   return config
 
 

@@ -17,7 +17,8 @@
 
 # pylint: disable=invalid-name,line-too-long
 
-from configs.google.users.iamtingchen import config_diffusion_base as config_base
+from configs import config_diffusion_base as config_base
+from configs.sweeper import Sweeper
 
 DATA_NAME = 'imagenet2012'
 ARCH_VARIANT = 'tape'
@@ -40,6 +41,11 @@ def get_config(config_str=None):
   config.optimization.ema_decay = 0.9999
   config.eval.batch_size = 80
   config.eval.steps = 625
+
+  # use the config from the sweep to update the config
+  sweep = get_sweep(Sweeper(remove_prefix='config.'))[0]
+  config.update_from_flattened_dict(sweep)
+
   return config
 
 

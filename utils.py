@@ -543,16 +543,48 @@ def run_in_parallel(fns):
 
 
 def config_to_dict(config):
-    """
-    Converts a ConfigDict to a dict.
+  """
+  Converts a ConfigDict to a dict.
 
-    Wraps around the to_dict() method but also converts
-    any ConfigDicts inside lists to dicts.
-    """
+  Wraps around the to_dict() method but also converts
+  any ConfigDicts inside lists to dicts.
+  """
 
-    config_dict = config.to_dict()
-    for key, value in config_dict.items():
-        if isinstance(value, list):
-            config_dict[key] = [config_to_dict(item) if isinstance(item, ConfigDict) else item for item in value]
+  config_dict = config.to_dict()
+  for key, value in config_dict.items():
+    if isinstance(value, list):
+      config_dict[key] = [config_to_dict(item) if isinstance(item, ConfigDict) else item for item in value]
 
-    return config_dict
+  return config_dict
+
+
+def print_config_diff(a, b, path=[]):
+  """
+  Prints the differences between two ConfigDicts.
+
+  Args:
+      config_a: The first ConfigDict.
+      config_b: The second ConfigDict.
+  """
+
+  keys_a = set(a.keys())
+  keys_b = set(b.keys())
+
+  for k in keys_a - keys_b:
+    path_str = '.'.join(path + [k])
+    print(f"{path_str}: {a[k]} ==> <missing>")
+
+  for k in keys_b - keys_a:
+    path_str = '.'.join(path + [k])
+    print(f"{path_str}: <missing> ==> {b[k]}")
+
+  for k in keys_a & keys_b:
+    if isinstance(a[k], list) and isinstance(b[k], list) and len(a[k]) == len(b[k]):
+      for i in range(len(a[k])):
+        print_config_diff(a[k][i], b[k][i], path + [k, str(i)])
+    elif isinstance(a[k], ConfigDict):
+      print_config_diff(a[k], b[k], path + [k])
+    else:
+      if a[k] != b[k]:
+        path_str = '.'.join(path + [k])
+        print(f"{path_str}: {a[k]} ==> {b[k]}")

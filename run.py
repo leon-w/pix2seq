@@ -35,10 +35,6 @@ from metrics import coco_metrics  # pylint: disable=unused-import
 from models import ar_model  # pylint: disable=unused-import
 from models import image_ar_model  # pylint: disable=unused-import
 from models import image_diffusion_model  # pylint: disable=unused-import
-# currently does not exist in the repo
-# from models import latent_diffusion_model  # pylint: disable=unused-import
-from models import video_diffusion_model  # pylint: disable=unused-import
-from models import image_discrete_diffusion_model  # pylint: disable=unused-import
 from models import model as model_lib
 from models import panoptic_diffusion  # pylint: disable=unused-import
 # pylint: disable=unused-import
@@ -53,6 +49,7 @@ import tensorflow as tf
 
 import wandb
 from einops import rearrange
+from PIL import Image
 
 
 TRAIN = 'train'
@@ -153,6 +150,13 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
     checkpoint.restore(ckpt).expect_partial()  # Not restore optimizer.
     global_step = checkpoint.global_step
     logging.info('Performing eval at step %d', global_step.numpy())
+
+
+  n = 8
+  samples, _ = model.sample(num_samples=n*n)
+  sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
+  Image.fromarray((sample_grid * 255).astype('uint8')).show()
+  return
 
   def single_step(examples):
     preprocessed_outputs = task.preprocess_batched(examples, training=False)

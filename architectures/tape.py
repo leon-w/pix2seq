@@ -15,7 +15,7 @@
 # ==============================================================================
 """Recurrent Interface Network (RIN), but here it is named Tape."""
 
-import einops
+from einops import rearrange
 from architectures.convnet_blocks import DepthwiseConvBlock
 from architectures.transformers import add_vis_pos_emb
 from architectures.transformers import get_shape
@@ -191,6 +191,8 @@ class TapeDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
         name='output_ln')
     self.output_linear = tf.keras.layers.Dense(
         self._output_dim, name='output_linear')
+
+    pass
 
   def make_latent_pos(self,
                       latent_slots,
@@ -369,19 +371,15 @@ class ImageTapeDenoiser(TapeDenoiser):  # pylint: disable=missing-docstring
 
   def _x_to_tape(self, x, offset=0):
     tokens = self.stem(x)
-    bsz, h, w, d = get_shape(tokens)
-    tokens = tf.reshape(tokens, [bsz, h * w, d])
-    tape_pos_emb = self.tape_pos_emb[tf.newaxis, ...]
+    tokens = rearrange(tokens, 'b h w d -> b (h w) d')
+    tape_pos_emb = rearrange(self.tape_pos_emb, 'n d -> 1 n d')
     if self._tape_pos_encoding in ['sin_cos_plus_learned']:
-      tape_pos_emb += self.tape_pos_emb_res[tf.newaxis, ...]
+      tape_pos_emb += rearrange(self.tape_pos_emb_res, 'n d -> 1 n d')
     tokens = self.stem_ln(tokens) + tape_pos_emb
     return tokens
 
   def readout_tape(self, tape):
     tokens = super().readout_tape(tape)
-    bsz, _, d = get_shape(tokens)
-    tokens = tf.reshape(tokens, [bsz, self._n_rows, self._n_cols, d])
-    if self._patch_size == 1:
-      return tokens
-    else:
-      return tf.nn.depth_to_space(tokens, self._patch_size)
+    tokens = rearrange(tokens, 'b (h w) (p1 p2 c) -> b (h p1) (w p2) c',
+                       h=self._n_rows, w=self._n_cols,p1=self._patch_size, p2=self._patch_size)
+    return tokens

@@ -22,7 +22,6 @@ from configs.sweeper import Sweeper
 
 DATA_NAME = 'cifar10'
 ARCH_VARIANT = 'tape'
-# ARCH_VARIANT = 'transunet'
 
 
 def get_config(config_str=None):
@@ -48,60 +47,43 @@ def get_config(config_str=None):
 
 def get_sweep(h):
   """Get the hyperparamater sweep."""
-  if ARCH_VARIANT == 'transunet':
-    return h.chainit([
-        h.product([
-            h.sweep('config.train.steps', [1_000_000]),
-            h.sweep('config.train.checkpoint_steps', [10000]),
-            h.sweep('config.train.keep_checkpoint_max', [100]),
-            h.sweep('config.train.batch_size', [128*1]),
-            h.sweep('config.optimization.learning_rate', [1e-4]),
-            h.sweep('config.optimization.warmup_steps', [10000]),
-            h.sweep('config.model.self_cond', ['none', 'x', 'eps']),
-            h.sweep('config.model.udrop', [0.3]),
-            h.sweep('config.model.dim', [256]),
-            h.sweep('config.model.n_res_blocks', ['3,3,3']),
-            h.sweep('config.model.ch_multipliers', ['1,1,1']),
-        ]),
-    ])
-  elif ARCH_VARIANT == 'tape':
-    return h.chainit([
-        h.product([
-            h.sweep('config.train.steps', [150_000]),
-            h.sweep('config.train.checkpoint_steps', [10000]),
-            h.sweep('config.train.keep_checkpoint_max', [10]),
-            h.sweep('config.train.batch_size', [256]),
-            h.sweep('config.optimization.optimizer', ['lamb']),
-            h.sweep('config.optimization.learning_rate', [3e-3]),
-            h.sweep('config.optimization.learning_rate_schedule', ['cosine@0.8']),
-            h.sweep('config.optimization.end_lr_factor', [0.0]),
-            h.sweep('config.optimization.warmup_steps', [10000]),
-            h.sweep('config.optimization.beta2', [0.999]),
-            h.sweep('config.optimization.weight_decay', [1e-2]),
-            h.sweep('config.model.train_schedule', ['sigmoid@-3,3,0.9',
-                                                    'simple_linear']),
-            h.sweep('config.model.self_cond', ['latent']),
-            h.sweep('config.model.self_cond_by_masking', [True]),
-            h.sweep('config.model.self_cond_rate', [0.9]),
+  return h.chainit([
+      h.product([
+          h.sweep('config.train.steps', [150_000]),
+          h.sweep('config.train.checkpoint_steps', [10000]),
+          h.sweep('config.train.keep_checkpoint_max', [10]),
+          h.sweep('config.train.batch_size', [256]),
+          h.sweep('config.optimization.optimizer', ['lamb']),
+          h.sweep('config.optimization.learning_rate', [3e-3]),
+          h.sweep('config.optimization.learning_rate_schedule', ['cosine@0.8']),
+          h.sweep('config.optimization.end_lr_factor', [0.0]),
+          h.sweep('config.optimization.warmup_steps', [10000]),
+          h.sweep('config.optimization.beta2', [0.999]),
+          h.sweep('config.optimization.weight_decay', [1e-2]),
+          h.sweep('config.model.train_schedule', ['sigmoid@-3,3,0.9',
+                                                  'simple_linear']),
+          h.sweep('config.model.self_cond', ['latent']),
+          h.sweep('config.model.self_cond_by_masking', [True]),
+          h.sweep('config.model.self_cond_rate', [0.9]),
 
-            h.sweep('config.model.patch_size', [2]),
-            h.sweep('config.model.time_on_latent', [True]),
-            h.sweep('config.model.cond_on_latent', [True]),
-            h.sweep('config.model.cond_tape_writable', [False]),
-            h.sweep('config.model.latent_pos_encoding', ['learned']),
-            h.sweep('config.model.tape_pos_encoding', ['learned']),
-            h.sweep('config.model.num_layers', ['2,2,2']),  # '4,4',
-            h.sweep('config.model.latent_slots', [128]),
-            h.sweep('config.model.latent_dim', [512]),
-            h.sweep('config.model.latent_num_heads', [16]),
-            h.sweep('config.model.latent_mlp_ratio', [4]),
-            h.sweep('config.model.tape_dim', [256]),
-            h.sweep('config.model.tape_mlp_ratio', [2]),
-            h.sweep('config.model.rw_num_heads', [8]),
-            h.sweep('config.model.drop_units', [0.1]),
-            h.sweep('config.model.drop_path', [0.1]),
-        ]),
-    ])
+          h.sweep('config.model.patch_size', [2]),
+          h.sweep('config.model.time_on_latent', [True]),
+          h.sweep('config.model.cond_on_latent', [True]),
+          h.sweep('config.model.cond_tape_writable', [False]),
+          h.sweep('config.model.latent_pos_encoding', ['learned']),
+          h.sweep('config.model.tape_pos_encoding', ['learned']),
+          h.sweep('config.model.num_layers', ['2,2,2']),  # '4,4',
+          h.sweep('config.model.latent_slots', [128]),
+          h.sweep('config.model.latent_dim', [512]),
+          h.sweep('config.model.latent_num_heads', [16]),
+          h.sweep('config.model.latent_mlp_ratio', [4]),
+          h.sweep('config.model.tape_dim', [256]),
+          h.sweep('config.model.tape_mlp_ratio', [2]),
+          h.sweep('config.model.rw_num_heads', [8]),
+          h.sweep('config.model.drop_units', [0.1]),
+          h.sweep('config.model.drop_path', [0.1]),
+      ]),
+  ])
 
 
 def get_eval_args_and_tags(config, args, unused_config_flag):

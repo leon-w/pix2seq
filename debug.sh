@@ -1,8 +1,8 @@
-rm -r results/debug
+rm -rf results/debug
 
 export WANDB_MODE=disabled
 
-python -m debugpy --wait-for-client --listen 0.0.0.0:39203 
+python -m debugpy --wait-for-client --listen 0.0.0.0:39203 \
     run.py \
     --run_eagerly True \
     --config configs/config_diffusion_cifar10.py \

@@ -7,3 +7,5 @@ tensorflow-text
 pycocotools
 scikit-image
 wandb
+einops
+colorama

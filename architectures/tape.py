@@ -254,11 +254,12 @@ class TapeDenoiser(tf.keras.layers.Layer):  # pylint: disable=missing-docstring
 
     def initialize_cond(self, t, cond, training):
         if t is not None:
-            t = tf.expand_dims(self.time_emb(t, last_swish=False, normalize=True), 1)
+            t = self.time_emb(t, last_swish=False, normalize=True)
+            t = rearrange(t, "b d -> b 1 d")
         if cond is not None:
             cond = self.cond_proj(cond)
             if cond.shape.ndims == 2:
-                cond = tf.expand_dims(cond, 1)
+                cond = rearrange(cond, "b d -> b 1 d")
         return t, cond
 
     def initialize_tape(self, x, time_emb, cond, tape_prev, offset=0):

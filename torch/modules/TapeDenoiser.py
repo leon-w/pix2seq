@@ -1,4 +1,5 @@
 from DepthwiseConvBlock import DepthwiseConvBlock
+from einops import rearrange
 from MLP import MLP
 from ScalarEmbedding import ScalarEmbedding, add_vis_pos_emb
 from TransformerDecoder import TransformerDecoder
@@ -55,17 +56,15 @@ class TapeDenoiser(nn.Module):
         self._cond_tape_writable = cond_tape_writable
         self._cond_decoupled_read = cond_decoupled_read
         time_scaling = torch.tensor(time_scaling, dtype=torch.float32)
-        self.stem_ln = nn.LayerNorm(normalized_shape=latent_dim, eps=1e-6, elementwise_affine=True)
+        self.stem_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
         self.time_emb = ScalarEmbedding(
             dim=(latent_dim if self._time_on_latent else cond_dim) // 4,
             scaling=time_scaling,
             expansion=4,
         )
         if cond_proj:
-            self.cond_proj = nn.Linear(
-                in_features=latent_dim if self._cond_on_latent else cond_dim,
-                out_features=latent_dim,
-            )
+            # TODO: figure out input shapes
+            self.cond_proj = nn.Linear(out_features=latent_dim if self._cond_on_latent else cond_dim)
         else:
             self.cond_proj = nn.Identity()
 
@@ -80,7 +79,8 @@ class TapeDenoiser(nn.Module):
                 drop_path=0.0,
                 drop_units=0.0,
             )
-            self.latent_prev_ln = nn.LayerNorm(normalized_shape=latent_dim, eps=1e-6, elementwise_affine=True)
+            self.latent_prev_ln = nn.LayerNorm(normalized_shape=latent_dim, eps=1e-6)
+            nn.init.zeros_(self.latent_prev_ln.weight)
         if self_cond in ["tape", "latent+tape"]:
             self.tape_prev_proj = MLP(
                 num_layers=1,
@@ -89,7 +89,8 @@ class TapeDenoiser(nn.Module):
                 drop_path=0.0,
                 drop_units=0.0,
             )
-            self.tape_prev_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6, elementwise_affine=True)
+            self.tape_prev_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
+            nn.init.zeros_(self.tape_prev_ln.weight)
         self.read_units = {}
         self.read_cond_units = {}
         self.write_units = {}
@@ -159,8 +160,8 @@ class TapeDenoiser(nn.Module):
                     drop_units=drop_units,
                     drop_att=drop_att,
                 )
-        self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6, elementwise_affine=True)
-        self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim, bias=True)
+        self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6)
+        self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim)
 
     def make_latent_pos(self, latent_slots, latent_dim, latent_pos_encoding, time_scaling):
         if latent_pos_encoding in ["sin_cos_plus_learned"]:
@@ -219,13 +220,14 @@ class TapeDenoiser(nn.Module):
         else:
             raise ValueError(f"Unknown tape_pos_encoding {tape_pos_encoding}")
 
-    def initialize_cond(self, t, cond, training):
+    def initialize_cond(self, t: torch.Tensor, cond: torch.Tensor):
         if t is not None:
-            t = self.time_emb(t, last_swish=False, normalize=True).unsqueeze(1)
+            t = self.time_emb(t, last_swish=False, normalize=True)
+            t = rearrange(t, "b d -> b 1 d")
         if cond is not None:
             cond = self.cond_proj(cond)
             if cond.ndim == 2:
-                cond = cond.unsqueeze(1)
+                cond = rearrange(cond, "b d -> b 1 d")
         return t, cond
 
     def initialize_tape(self, x, time_emb, cond, tape_prev, offset=0):
@@ -259,7 +261,7 @@ class TapeDenoiser(nn.Module):
         tape_merged = tape_writable if tape_readonly is None else (torch.cat([tape_writable, tape_readonly], 1))
         return tape_merged
 
-    def compute(self, latent, tape, tape_r, training):
+    def compute(self, latent, tape, tape_r):
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
                 latent = self.read_cond_units[str(i)](latent, tape_r, None, None, None, training)[0]
@@ -282,7 +284,7 @@ class TapeDenoiser(nn.Module):
         tape_shape = [self._tape_slots, self._tape_dim]
         return latent_shape, tape_shape
 
-    def forward(self, x, t, cond, training):
+    def forward(self, x, t, cond):
         """x[0] in (bsz, h, w, c), t in (bsz, m), cond in (bsz, s, d)."""
         if isinstance(x, tuple) or isinstance(x, list):
             x, latent_prev, tape_prev = x
@@ -291,9 +293,9 @@ class TapeDenoiser(nn.Module):
             bsz = x.shape[0]
             latent_prev = torch.zeros([bsz] + self.hidden_shapes[0])
             tape_prev = torch.zeros([bsz] + self.hidden_shapes[1])
-        time_emb, cond = self.initialize_cond(t, cond, training)
+        time_emb, cond = self.initialize_cond(t, cond)
         tape, tape_r = self.initialize_tape(x, time_emb, cond, tape_prev)
         latent = self.initialize_latent(bsz, time_emb, cond, latent_prev)
-        latent, tape = self.compute(latent, tape, tape_r, training)
+        latent, tape = self.compute(latent, tape, tape_r)
         x = self.readout_tape(tape)
         return x, latent, tape[:, : self._tape_slots]

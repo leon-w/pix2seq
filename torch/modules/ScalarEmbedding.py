@@ -1,38 +1,18 @@
 from einops import rearrange
+from initializer import initialize_variable
 
 import torch
 import torch.nn as nn
 
-# def get_angles_tf(pos, i, dim):
-#   angle_rates = 1 / tf.pow(10000., tf.cast(2 * (i//2), tf.float32) / dim)
-#   return tf.cast(pos, tf.float32) * tf.cast(angle_rates, tf.float32)
 
-
-# def positional_encoding_tf(coords, dim):
-#   """coords in (bsz, size), return (bsz, size, dim)."""
-#   angle_rads = get_angles_tf(tf.expand_dims(coords, -1),
-#                           tf.range(dim)[tf.newaxis, tf.newaxis, :],
-#                           dim)
-
-#   # apply sin to even indices in the array; 2i
-#   angle_rads1 = tf.sin(angle_rads[:, :, 0::2])
-
-#   # apply cos to odd indices in the array; 2i+1
-#   angle_rads2 = tf.cos(angle_rads[:, :, 1::2])
-
-#   pos_encoding = tf.concat([angle_rads1, angle_rads2], -1)
-
-#   return tf.cast(pos_encoding, dtype=tf.float32)
-
-
-def get_angles(pos, i, dim):
+def get_angles(pos: torch.Tensor, i: torch.Tensor, dim: int):
     angle_rates = 1 / torch.pow(10000.0, 2 * (i // 2) / dim)
     return pos.float() * angle_rates.float()
 
 
-def positional_encoding(coords, dim):
+def positional_encoding(coords: torch.Tensor, dim: int):
     angle_rads = get_angles(
-        rearrange(coords, "b s -> b s 1"),
+        rearrange(coords, "b -> b 1"),
         rearrange(torch.arange(dim), "d -> 1 1 d"),
         dim,
     )
@@ -48,64 +28,23 @@ def positional_encoding(coords, dim):
     return pos_encoding.float()
 
 
-# class ScalarEmbedding_tf(tf.keras.layers.Layer):
-#   """Scalar embedding layers.
-
-#   Assume the first input dim to be time, and rest are optional features.
-#   """
-
-#   def __init__(self, dim, scaling, expansion=4, **kwargs):
-#     super().__init__(**kwargs)
-#     self.scalar_encoding = lambda x: positional_encoding_tf(x*scaling, dim)
-#     self.dense_0 = tf.keras.layers.Dense(
-#         dim * expansion,
-#         kernel_initializer=get_variable_initializer(1.),
-#         name='dense0')
-#     self.dense_1 = tf.keras.layers.Dense(
-#         dim * expansion,
-#         kernel_initializer=get_variable_initializer(1.),
-#         name='dense1')
-
-#   def call(self, x, last_swish=True, normalize=False):
-#     y = None
-#     if x.shape.rank > 1:
-#       assert x.shape.rank == 2
-#       x, y = x[..., 0], x[..., 1:]
-#     x = self.scalar_encoding(x)[0]
-#     if normalize:
-#       x_mean = tf.reduce_mean(x, -1, keepdims=True)
-#       x_std = tf.math.reduce_std(x, -1, keepdims=True)
-#       x = (x - x_mean) / x_std
-#     x = tf.nn.silu(self.dense_0(x))
-#     x = x if y is None else tf.concat([x, y], -1)
-#     x = self.dense_1(x)
-#     return tf.nn.silu(x) if last_swish else x
-
-
 class ScalarEmbedding(nn.Module):
-    """Scalar embedding layers.
-
-    Assume the first input dim to be time, and rest are optional features.
-    """
-
-    def __init__(self, dim, scaling, expansion=4):
+    def __init__(self, dim: int, scaling: float | torch.Tensor, expansion=4):
         super().__init__()
         self.scalar_encoding = lambda x: positional_encoding(x * scaling, dim)
         self.dense_0 = nn.Linear(dim, dim * expansion)
+        initialize_variable(self.dense_0.weight)
         self.dense_1 = nn.Linear(dim * expansion, dim * expansion)
+        initialize_variable(self.dense_1.weight)
 
-    def forward(self, x, last_swish=True, normalize=False):
-        y = None
-        if x.dim() > 1:
-            assert x.dim() == 2
-            x, y = x[..., 0], x[..., 1:]
+    def forward(self, x: torch.Tensor, last_swish=True, normalize=False):
+        assert x.ndim == 1
         x = self.scalar_encoding(x)[0]
         if normalize:
             x_mean = torch.mean(x, -1, keepdim=True)
             x_std = torch.std(x, -1, keepdim=True)
             x = (x - x_mean) / x_std
         x = nn.functional.silu(self.dense_0(x))
-        x = x if y is None else torch.cat([x, y], -1)
         x = self.dense_1(x)
         return nn.functional.silu(x) if last_swish else x
 
@@ -250,3 +189,11 @@ def add_vis_pos_emb(
         raise ValueError(f"Unknown pos encoding pos_encoding")
 
     return vis_pos_emb
+
+
+if __name__ == "__main__":
+    s = ScalarEmbedding(128, 1e4, expansion=4)
+
+    x = torch.arange(0, 100, 1)
+
+    print(s(x).shape)

@@ -12,6 +12,24 @@
                 "host": "node4",
                 "port": 39203
             }
+        },
+        {
+            "name": "Python: Attach node2",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "node2",
+                "port": 39203
+            }
+        },
+        {
+            "name": "Python: Attach node3",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "node3",
+                "port": 39203
+            }
         }
     ]
 }

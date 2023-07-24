@@ -9,6 +9,7 @@ import torch.nn as nn
 
 
 class TapeDenoiser(nn.Module):
+    # TODO
     def __init__(
         self,
         num_layers,
@@ -152,7 +153,14 @@ class TapeDenoiser(nn.Module):
         self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6)
         self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim)
 
-    def make_latent_pos(self, latent_slots, latent_dim, latent_pos_encoding, time_scaling):
+    # TODO
+    def make_latent_pos(
+        self,
+        latent_slots: int,
+        latent_dim: int,
+        latent_pos_encoding: str,
+        time_scaling: float,
+    ) -> None:
         if latent_pos_encoding in ["sin_cos_plus_learned"]:
             self.latent_pos_emb = add_vis_pos_emb(
                 self,
@@ -180,7 +188,13 @@ class TapeDenoiser(nn.Module):
         else:
             raise ValueError(f"Unknown latent_pos_encoding {latent_pos_encoding}")
 
-    def make_tape_pos(self, tape_dim, tape_pos_encoding, time_scaling):
+    # TODO
+    def make_tape_pos(
+        self,
+        tape_dim: int,
+        tape_pos_encoding: str,
+        time_scaling: float,
+    ) -> None:
         if tape_pos_encoding in ["sin_cos_plus_learned"]:
             self.tape_pos_emb = add_vis_pos_emb(
                 self,
@@ -209,7 +223,12 @@ class TapeDenoiser(nn.Module):
         else:
             raise ValueError(f"Unknown tape_pos_encoding {tape_pos_encoding}")
 
-    def initialize_cond(self, t: torch.Tensor, cond: torch.Tensor):
+    # done
+    def initialize_cond(
+        self,
+        t: torch.Tensor | None,
+        cond: torch.Tensor | None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         if t is not None:
             t = self.time_emb(t, last_swish=False, normalize=True)
             t = rearrange(t, "b d -> b 1 d")
@@ -219,71 +238,106 @@ class TapeDenoiser(nn.Module):
                 cond = rearrange(cond, "b d -> b 1 d")
         return t, cond
 
-    def initialize_tape(self, x, time_emb, cond, tape_prev, offset=0):
+    # done
+    def initialize_tape(
+        self,
+        x: torch.Tensor,
+        time_emb: torch.Tensor | None,
+        cond: torch.Tensor | None,
+        tape_prev: torch.Tensor | None,
+    ):
         tape_r = None
         if not self._time_on_latent and time_emb is not None:
             tape_r = time_emb
         if not self._cond_on_latent and cond is not None:
-            tape_r = cond if tape_r is None else torch.cat([tape_r, cond], 1)
-        tape = self._x_to_tape(x, offset)  # (bsz, n, d)
+            tape_r = self._concat_tokens(tape_r, cond)
 
+        tape = self._x_to_tape(x)
         if self._self_cond in ["tape", "latent+tape"] and tape_prev is not None:
             tape += self.tape_prev_ln(self.tape_prev_proj(tape_prev))
         if self._cond_tape_writable and tape_r is not None:
-            tape, tape_r = torch.cat([tape, tape_r], 1), None
+            tape, tape_r = self._concat_tokens(tape, tape_r), None
+
         return tape, tape_r
 
-    def initialize_latent(self, batch_size, time_emb, cond, latent_prev):
-        latent = self.latent_pos_emb.unsqueeze(0)
+    # done
+    def initialize_latent(
+        self,
+        batch_size: int,
+        time_emb: torch.Tensor | None,
+        cond: torch.Tensor | None,
+        latent_prev: torch.Tensor | None,
+    ) -> torch.Tensor:
+        latent = self.latent_pos_emb
         if self._latent_pos_encoding in ["sin_cos_plus_learned"]:
-            latent += self.latent_pos_emb_res.unsqueeze(0)
+            latent += self.latent_pos_emb_res
         latent = latent.repeat(batch_size, 1, 1)
         if self._time_on_latent and time_emb is not None:
-            latent = torch.cat([latent, time_emb], 1)
+            latent = self._concat_tokens(latent, time_emb)
         if self._cond_on_latent and cond is not None:
-            latent = torch.cat([latent, cond], 1)
-        if self._self_cond in ["latent", "latent+tape"]:
+            latent = self._concat_tokens(latent, cond)
+        if self._self_cond in ["latent", "latent+tape"] and latent_prev is not None:
             latent += self.latent_prev_ln(self.latent_prev_proj(latent_prev))
         return latent
 
-    def _merge_tape(self, tape_writable, tape_readonly):
-        tape_merged = tape_writable if tape_readonly is None else (torch.cat([tape_writable, tape_readonly], 1))
-        return tape_merged
+    # done
+    def _concat_tokens(self, *tokens: torch.Tensor | None) -> torch.Tensor:
+        # tokens in shape [..., n, d]
+        return torch.cat([t for t in tokens if t is not None], -2)
 
-    def compute(self, latent, tape, tape_r):
+    def compute(
+        self,
+        latent: torch.Tensor,
+        tape: torch.Tensor,
+        tape_r: torch.Tensor | None,
+        training: bool = True,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
                 latent = self.read_cond_units[str(i)](latent, tape_r, None, None, None, training)[0]
                 latent = self.read_units[str(i)](latent, tape, None, None, None, training)[0]
             else:
-                tape_merged = self._merge_tape(tape, tape_r)
+                tape_merged = self._concat_tokens(tape, tape_r)
                 latent = self.read_units[str(i)](latent, tape_merged, None, None, None, training)[0]
             latent = self.latent_processing_units[str(i)](latent, None, training)
             tape = self.write_units[str(i)](tape, latent, None, None, None, training)[0]
         return latent, tape
 
-    def readout_tape(self, tape):
-        tokens = self.output_linear(self.output_ln(tape[:, : self._num_tokens]))
+    # done
+    def readout_tape(self, tape: torch.Tensor) -> torch.Tensor:
+        tokens = tape[:, : self._num_tokens]
+        tokens = self.output_ln(tokens)
+        tokens = self.output_linear(tokens)
         return tokens
 
+    # done
     @property
-    def hidden_shapes(self):
-        latent_shape = [self._latent_slots, self._latent_dim]
-        tape_shape = [self._tape_slots, self._tape_dim]
-        return latent_shape, tape_shape
+    def latent_shape(self) -> list[int]:
+        return [self._latent_slots, self._latent_dim]
 
-    def forward(self, x, t, cond):
-        """x[0] in (bsz, h, w, c), t in (bsz, m), cond in (bsz, s, d)."""
+    # done
+    @property
+    def tape_shape(self) -> list[int]:
+        return [self._tape_slots, self._tape_dim]
+
+    # done
+    def forward(
+        self,
+        x: torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor] | list[torch.Tensor],
+        t: torch.Tensor,
+        cond: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """x[0] in (bs, h, w, c), t in (bs,), cond in (bs, s, d)."""
         if isinstance(x, tuple) or isinstance(x, list):
             x, latent_prev, tape_prev = x
-            bsz = x.shape[0]
+            bs = x.shape[0]
         else:
-            bsz = x.shape[0]
-            latent_prev = torch.zeros([bsz] + self.hidden_shapes[0])
-            tape_prev = torch.zeros([bsz] + self.hidden_shapes[1])
+            bs = x.shape[0]
+            latent_prev = torch.zeros(bs, *self.latent_shape)
+            tape_prev = torch.zeros(bs, *self.tape_shape)
         time_emb, cond = self.initialize_cond(t, cond)
         tape, tape_r = self.initialize_tape(x, time_emb, cond, tape_prev)
-        latent = self.initialize_latent(bsz, time_emb, cond, latent_prev)
+        latent = self.initialize_latent(bs, time_emb, cond, latent_prev)
         latent, tape = self.compute(latent, tape, tape_r)
         x = self.readout_tape(tape)
         return x, latent, tape[:, : self._tape_slots]

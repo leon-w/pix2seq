@@ -42,7 +42,6 @@ def p(*args, **kwargs):
 
     for arg in args:
         items.append(FormatObject(arg))
-        items.append(" ")
 
     for k, v in kwargs.items():
         items.append(yellow(f"{k}=") + repr(FormatObject(v)))

@@ -79,7 +79,7 @@ class TapeDenoiser(nn.Module):
                 drop_path=0.0,
                 drop_units=0.0,
             )
-            self.latent_prev_ln = nn.LayerNorm(normalized_shape=latent_dim, eps=1e-6)
+            self.latent_prev_ln = nn.LayerNorm(latent_dim, eps=1e-6)
             nn.init.zeros_(self.latent_prev_ln.weight)
         if self_cond in ["tape", "latent+tape"]:
             self.tape_prev_proj = MLP(
@@ -89,7 +89,7 @@ class TapeDenoiser(nn.Module):
                 drop_path=0.0,
                 drop_units=0.0,
             )
-            self.tape_prev_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
+            self.tape_prev_ln = nn.LayerNorm(tape_dim, eps=1e-6)
             nn.init.zeros_(self.tape_prev_ln.weight)
         self.read_units = nn.ModuleList()
         self.read_cond_units = nn.ModuleList()
@@ -130,7 +130,7 @@ class TapeDenoiser(nn.Module):
                     )
                 )
             if num_layers_per_readwrite == 0:
-                self.write_units.append(LambdaModule(lambda x: (x, None)))
+                self.write_units.append(LambdaModule(lambda x: x))
                 self.latent_processing_units.append(LambdaModule(lambda x: x))
             else:
                 self.write_units.append(
@@ -282,22 +282,22 @@ class TapeDenoiser(nn.Module):
         # tokens in shape [..., n, d]
         return torch.cat([t for t in tokens if t is not None], -2)
 
+    # done
     def compute(
         self,
         latent: torch.Tensor,
         tape: torch.Tensor,
         tape_r: torch.Tensor | None,
-        training: bool = True,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
-                latent = self.read_cond_units[i](latent, tape_r, None, None, None, training)[0]
-                latent = self.read_units[i](latent, tape, None, None, None, training)[0]
+                latent = self.read_cond_units[i](latent, tape_r)
+                latent = self.read_units[i](latent, tape)
             else:
                 tape_merged = self._concat_tokens(tape, tape_r)
-                latent = self.read_units[i](latent, tape_merged, None, None, None, training)[0]
-            latent = self.latent_processing_units[i](latent, None, training)
-            tape = self.write_units[i](tape, latent, None, None, None, training)[0]
+                latent = self.read_units[i](latent, tape_merged)
+            latent = self.latent_processing_units[i](latent)
+            tape = self.write_units[i](tape, latent)
         return latent, tape
 
     # done

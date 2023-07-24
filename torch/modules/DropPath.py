@@ -3,13 +3,15 @@ import torch.nn as nn
 
 
 class DropPath(nn.Module):
+    # done
     def __init__(self, drop_rate=0.0):
         super().__init__()
 
         assert 0.0 <= drop_rate <= 1.0
         self.drop_rate = drop_rate
 
-    def forward(self, x: torch.Tensor):
+    # done
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.drop_rate == 0.0 or not self.training:
             return x
 

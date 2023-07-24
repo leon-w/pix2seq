@@ -1,4 +1,3 @@
-from DepthwiseConvBlock import DepthwiseConvBlock
 from einops import rearrange
 from MLP import MLP
 from ScalarEmbedding import ScalarEmbedding, add_vis_pos_emb
@@ -20,8 +19,6 @@ class TapeDenoiser(nn.Module):
         tape_dim,
         tape_mlp_ratio,
         rw_num_heads,
-        conv_kernel_size=0,
-        conv_drop_units=0,
         latent_pos_encoding="learned",
         tape_pos_encoding="learned",
         drop_path=0.0,
@@ -94,7 +91,6 @@ class TapeDenoiser(nn.Module):
         self.read_units = {}
         self.read_cond_units = {}
         self.write_units = {}
-        self.conv_units = {}
         self.latent_processing_units = {}
         for i, num_layers_per_readwrite in enumerate(self._num_layers):
             self.read_units[str(i)] = TransformerDecoder(
@@ -128,7 +124,6 @@ class TapeDenoiser(nn.Module):
                 )
             if num_layers_per_readwrite == 0:
                 self.write_units[str(i)] = lambda x, *args, **kwargs: (x, None)
-                self.conv_units[str(i)] = lambda x, *args, **kwargs: x
                 self.latent_processing_units[str(i)] = lambda x, *args, **kwargs: x
             else:
                 self.write_units[str(i)] = TransformerDecoder(
@@ -145,12 +140,6 @@ class TapeDenoiser(nn.Module):
                     use_mlp=True if tape_mlp_ratio > 0 else False,
                     use_enc_ln=xattn_enc_ln,
                 )
-                if conv_kernel_size == 0:
-                    self.conv_units[str(i)] = lambda x, *args, **kwargs: x
-                else:
-                    self.conv_units[str(i)] = DepthwiseConvBlock(
-                        tape_dim, kernel_size=conv_kernel_size, dropout_rate=conv_drop_units
-                    )
                 self.latent_processing_units[str(i)] = TransformerEncoder(
                     num_layers=num_layers_per_readwrite,
                     dim=latent_dim,
@@ -271,7 +260,6 @@ class TapeDenoiser(nn.Module):
                 latent = self.read_units[str(i)](latent, tape_merged, None, None, None, training)[0]
             latent = self.latent_processing_units[str(i)](latent, None, training)
             tape = self.write_units[str(i)](tape, latent, None, None, None, training)[0]
-            tape = self.conv_units[str(i)](tape, training, size=self._num_tokens)
         return latent, tape
 
     def readout_tape(self, tape):

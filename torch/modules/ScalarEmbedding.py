@@ -33,9 +33,9 @@ class ScalarEmbedding(nn.Module):
         super().__init__()
         self.scalar_encoding = lambda x: positional_encoding(x * scaling, dim)
         self.dense_0 = nn.Linear(dim, dim * expansion)
-        initialize_variable(self.dense_0.weight)
+        initialize_variable(self.dense_0.weight, scale=1.0)
         self.dense_1 = nn.Linear(dim * expansion, dim * expansion)
-        initialize_variable(self.dense_1.weight)
+        initialize_variable(self.dense_1.weight, scale=1.0)
 
     def forward(self, x: torch.Tensor, last_swish=True, normalize=False):
         assert x.ndim == 1

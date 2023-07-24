@@ -1,6 +1,7 @@
 from einops import rearrange
 from MLP import MLP
-from ScalarEmbedding import ScalarEmbedding, add_vis_pos_emb
+from pos_embedding import create_2d_pos_emb
+from ScalarEmbedding import ScalarEmbedding
 from TransformerDecoder import TransformerDecoder
 from TransformerEncoder import TransformerEncoder
 
@@ -153,7 +154,7 @@ class TapeDenoiser(nn.Module):
         self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6)
         self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim)
 
-    # TODO
+    # done
     def make_latent_pos(
         self,
         latent_slots: int,
@@ -162,33 +163,27 @@ class TapeDenoiser(nn.Module):
         time_scaling: float,
     ) -> None:
         if latent_pos_encoding in ["sin_cos_plus_learned"]:
-            self.latent_pos_emb = add_vis_pos_emb(
-                self,
-                "sin_cos",
-                latent_slots,
-                1,
-                latent_dim,
-                name_prefix=f"{self.name}/latent_pos_emb/kernel",
-                return_only=True,
+            self.latent_pos_emb = create_2d_pos_emb(
+                pos_encoding="sin_cos",
+                n_rows=latent_slots,
+                n_cols=1,
+                dim=latent_dim,
                 normalization_max=time_scaling,
             )
-            self.latent_pos_emb_res = self.add_weight(
-                shape=(latent_slots, latent_dim), initializer="zeros", name=f"{self.name}/latent_pos_emb_res/kernel"
-            )
+            self.latent_pos_emb_res = nn.Parameter(torch.empty(latent_slots, latent_dim))
+            nn.init.zeros_(self.latent_pos_emb_res)
         elif latent_pos_encoding in ["learned", "sin_cos"]:
-            self.latent_pos_emb = add_vis_pos_emb(
-                self,
-                latent_pos_encoding,
-                latent_slots,
-                1,
-                latent_dim,
-                return_only=True,
+            self.latent_pos_emb = create_2d_pos_emb(
+                pos_encoding=latent_pos_encoding,
+                n_rows=latent_slots,
+                n_cols=1,
+                dim=latent_dim,
                 normalization_max=time_scaling,
             )
         else:
-            raise ValueError(f"Unknown latent_pos_encoding {latent_pos_encoding}")
+            raise ValueError(f"Unknown latent_pos_encoding `{latent_pos_encoding}`")
 
-    # TODO
+    # done
     def make_tape_pos(
         self,
         tape_dim: int,
@@ -196,32 +191,25 @@ class TapeDenoiser(nn.Module):
         time_scaling: float,
     ) -> None:
         if tape_pos_encoding in ["sin_cos_plus_learned"]:
-            self.tape_pos_emb = add_vis_pos_emb(
-                self,
-                "sin_cos",
-                self._n_rows,
-                self._n_cols,
-                tape_dim,
-                return_only=True,
+            self.tape_pos_emb = create_2d_pos_emb(
+                pos_encoding="sin_cos",
+                n_rows=self._n_rows,
+                n_cols=self._n_cols,
+                dim=tape_dim,
                 normalization_max=time_scaling,
             )
-            self.tape_pos_emb_res = self.add_weight(
-                shape=(self._n_rows * self._n_cols, tape_dim),
-                initializer="zeros",
-                name=f"{self.name}/tape_pos_emb_res/kernel",
-            )
+            self.tape_pos_emb_res = nn.Parameter(torch.empty(self._n_rows * self._n_cols, tape_dim))
+            nn.init.zeros_(self.tape_pos_emb_res)
         elif tape_pos_encoding in ["learned", "sin_cos"]:
-            self.tape_pos_emb = add_vis_pos_emb(
-                self,
-                tape_pos_encoding,
-                self._n_rows,
-                self._n_cols,
-                tape_dim,
-                return_only=True,
+            self.tape_pos_emb = create_2d_pos_emb(
+                pos_encoding=tape_pos_encoding,
+                n_rows=self._n_rows,
+                n_cols=self._n_cols,
+                dim=tape_dim,
                 normalization_max=time_scaling,
             )
         else:
-            raise ValueError(f"Unknown tape_pos_encoding {tape_pos_encoding}")
+            raise ValueError(f"Unknown tape_pos_encoding `{tape_pos_encoding}`")
 
     # done
     def initialize_cond(

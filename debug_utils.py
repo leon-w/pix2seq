@@ -36,7 +36,7 @@ class FormatObject:
 
 
 def p(*args, **kwargs):
-    time = green(datetime.now().strftime("%H:%M:%S"))
+    time = green(f"[{datetime.now().strftime('%H:%M:%S')}] ")
 
     items = []
 

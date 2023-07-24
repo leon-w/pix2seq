@@ -36,7 +36,7 @@ class FormatObject:
 
 
 def p(*args, **kwargs):
-    time = green(f"[{datetime.now().strftime('%H:%M:%S')}] ")
+    time = green(f"[{datetime.now().strftime('%H:%M:%S')}]")
 
     items = []
 
@@ -45,11 +45,9 @@ def p(*args, **kwargs):
         items.append(" ")
 
     for k, v in kwargs.items():
-        items.append(yellow(f"{k}="))
-        items.append(FormatObject(v))
-        items.append(" ")
+        items.append(yellow(f"{k}=") + repr(FormatObject(v)))
 
-    print(time, *items, sep="")
+    print(time, *items)
 
 
 class CallObserver:

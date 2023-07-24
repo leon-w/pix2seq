@@ -1,4 +1,5 @@
 from einops import rearrange
+from LambdaModule import LambdaModule
 from MLP import MLP
 from pos_embedding import create_2d_pos_emb
 from ScalarEmbedding import ScalarEmbedding
@@ -90,48 +91,16 @@ class TapeDenoiser(nn.Module):
             )
             self.tape_prev_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
             nn.init.zeros_(self.tape_prev_ln.weight)
-        self.read_units = {}
-        self.read_cond_units = {}
-        self.write_units = {}
-        self.latent_processing_units = {}
-        for i, num_layers_per_readwrite in enumerate(self._num_layers):
-            self.read_units[str(i)] = TransformerDecoder(
-                num_layers=1,
-                dim=latent_dim,
-                mlp_ratio=latent_mlp_ratio,
-                num_heads=rw_num_heads,
-                drop_path=0.0,
-                drop_units=0.0,
-                drop_att=0.0,
-                dim_x_att=min(tape_dim, latent_dim),
-                self_attention=False,
-                cross_attention=True,
-                use_mlp=True,
-                use_enc_ln=xattn_enc_ln,
-            )
-            if cond_decoupled_read:
-                self.read_cond_units[str(i)] = TransformerDecoder(
+        self.read_units = nn.ModuleList()
+        self.read_cond_units = nn.ModuleList()
+        self.write_units = nn.ModuleList()
+        self.latent_processing_units = nn.ModuleList()
+        for num_layers_per_readwrite in self._num_layers:
+            self.read_units.append(
+                TransformerDecoder(
                     num_layers=1,
                     dim=latent_dim,
                     mlp_ratio=latent_mlp_ratio,
-                    num_heads=rw_num_heads,
-                    drop_path=0.0,
-                    drop_units=0.0,
-                    drop_att=0.0,
-                    dim_x_att=min(cond_dim, latent_dim),
-                    self_attention=False,
-                    cross_attention=True,
-                    use_mlp=True,
-                    use_enc_ln=xattn_enc_ln,
-                )
-            if num_layers_per_readwrite == 0:
-                self.write_units[str(i)] = lambda x, *args, **kwargs: (x, None)
-                self.latent_processing_units[str(i)] = lambda x, *args, **kwargs: x
-            else:
-                self.write_units[str(i)] = TransformerDecoder(
-                    num_layers=1,
-                    dim=tape_dim,
-                    mlp_ratio=tape_mlp_ratio,
                     num_heads=rw_num_heads,
                     drop_path=0.0,
                     drop_units=0.0,
@@ -139,17 +108,57 @@ class TapeDenoiser(nn.Module):
                     dim_x_att=min(tape_dim, latent_dim),
                     self_attention=False,
                     cross_attention=True,
-                    use_mlp=True if tape_mlp_ratio > 0 else False,
+                    use_mlp=True,
                     use_enc_ln=xattn_enc_ln,
                 )
-                self.latent_processing_units[str(i)] = TransformerEncoder(
-                    num_layers=num_layers_per_readwrite,
-                    dim=latent_dim,
-                    mlp_ratio=latent_mlp_ratio,
-                    num_heads=latent_num_heads,
-                    drop_path=drop_path,
-                    drop_units=drop_units,
-                    drop_att=drop_att,
+            )
+            if cond_decoupled_read:
+                self.read_cond_units.append(
+                    TransformerDecoder(
+                        num_layers=1,
+                        dim=latent_dim,
+                        mlp_ratio=latent_mlp_ratio,
+                        num_heads=rw_num_heads,
+                        drop_path=0.0,
+                        drop_units=0.0,
+                        drop_att=0.0,
+                        dim_x_att=min(cond_dim, latent_dim),
+                        self_attention=False,
+                        cross_attention=True,
+                        use_mlp=True,
+                        use_enc_ln=xattn_enc_ln,
+                    )
+                )
+            if num_layers_per_readwrite == 0:
+                self.write_units.append(LambdaModule(lambda x: (x, None)))
+                self.latent_processing_units.append(LambdaModule(lambda x: x))
+            else:
+                self.write_units.append(
+                    TransformerDecoder(
+                        num_layers=1,
+                        dim=tape_dim,
+                        mlp_ratio=tape_mlp_ratio,
+                        num_heads=rw_num_heads,
+                        drop_path=0.0,
+                        drop_units=0.0,
+                        drop_att=0.0,
+                        dim_x_att=min(tape_dim, latent_dim),
+                        self_attention=False,
+                        cross_attention=True,
+                        use_mlp=True if tape_mlp_ratio > 0 else False,
+                        use_enc_ln=xattn_enc_ln,
+                    )
+                )
+                self.latent_processing_units.append(
+                    TransformerEncoder(
+                        num_layers=num_layers_per_readwrite,
+                        dim=latent_dim,
+                        mlp_ratio=latent_mlp_ratio,
+                        num_heads=latent_num_heads,
+                        drop_path=drop_path,
+                        drop_units=drop_units,
+                        drop_att=drop_att,
+                    )
                 )
         self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6)
         self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim)
@@ -282,13 +291,13 @@ class TapeDenoiser(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
-                latent = self.read_cond_units[str(i)](latent, tape_r, None, None, None, training)[0]
-                latent = self.read_units[str(i)](latent, tape, None, None, None, training)[0]
+                latent = self.read_cond_units[i](latent, tape_r, None, None, None, training)[0]
+                latent = self.read_units[i](latent, tape, None, None, None, training)[0]
             else:
                 tape_merged = self._concat_tokens(tape, tape_r)
-                latent = self.read_units[str(i)](latent, tape_merged, None, None, None, training)[0]
-            latent = self.latent_processing_units[str(i)](latent, None, training)
-            tape = self.write_units[str(i)](tape, latent, None, None, None, training)[0]
+                latent = self.read_units[i](latent, tape_merged, None, None, None, training)[0]
+            latent = self.latent_processing_units[i](latent, None, training)
+            tape = self.write_units[i](tape, latent, None, None, None, training)[0]
         return latent, tape
 
     # done

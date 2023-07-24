@@ -1,13 +1,14 @@
 from einops import rearrange
-from LambdaModule import LambdaModule
-from MLP import MLP
-from pos_embedding import create_2d_pos_emb
-from ScalarEmbedding import ScalarEmbedding
-from TransformerDecoder import TransformerDecoder
-from TransformerEncoder import TransformerEncoder
 
 import torch
 import torch.nn as nn
+
+from .LambdaModule import LambdaModule
+from .MLP import MLP
+from .ScalarEmbedding import ScalarEmbedding
+from .TransformerDecoder import TransformerDecoder
+from .TransformerEncoder import TransformerEncoder
+from .utils.pos_embedding import create_2d_pos_emb
 
 
 class TapeDenoiser(nn.Module):

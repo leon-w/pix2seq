@@ -1,8 +1,9 @@
 from einops import rearrange
-from initializer import initialize_variable_truncated_normal
 
 import torch
 import torch.nn as nn
+
+from .initializer import initialize_variable_truncated_normal
 
 
 # done

@@ -1,8 +1,8 @@
-from DropPath import DropPath
-from MLP import MLP
-
 import torch
 import torch.nn as nn
+
+from .DropPath import DropPath
+from .MLP import MLP
 
 
 class TransformerEncoderLayer(nn.Module):

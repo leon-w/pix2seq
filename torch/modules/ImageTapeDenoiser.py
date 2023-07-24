@@ -1,8 +1,9 @@
 from einops import rearrange
-from TapeDenoiser import TapeDenoiser
 
 import torch
 import torch.nn as nn
+
+from .TapeDenoiser import TapeDenoiser
 
 
 class ImageTapeDenoiser(TapeDenoiser):

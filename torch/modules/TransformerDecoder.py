@@ -1,7 +1,7 @@
-from TransformerDecoderLayer import TransformerDecoderLayer
-
 import torch
 import torch.nn as nn
+
+from .TransformerDecoderLayer import TransformerDecoderLayer
 
 
 class TransformerDecoder(nn.Module):

@@ -1,8 +1,8 @@
-from DropPath import DropPath
-from FeedForwardLayer import FeedForwardLayer
-
 import torch
 import torch.nn as nn
+
+from .DropPath import DropPath
+from .FeedForwardLayer import FeedForwardLayer
 
 
 class MLP(nn.Module):

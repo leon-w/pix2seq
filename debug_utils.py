@@ -4,38 +4,59 @@ import tensorflow as tf
 from colorama import Fore, Style
 
 
-def format_object(o):
-  if isinstance(o, tf.Tensor):
-    return f"T[{o.shape}, {repr(o.dtype)}]"
+def red(s):
+    return f"{Fore.LIGHTRED_EX}{s}{Style.RESET_ALL}"
 
-  if isinstance(o, tuple):
-    return tuple(format_object(x) for x in o)
 
-  if isinstance(o, list):
-    return [format_object(x) for x in o]
+def yellow(s):
+    return f"{Fore.YELLOW}{s}{Style.RESET_ALL}"
 
-  return o
+
+def green(s):
+    return f"{Fore.GREEN}{s}{Style.RESET_ALL}"
+
+
+class FormatObject:
+    def __init__(self, o):
+        self.o = o
+
+    def __repr__(self):
+        if isinstance(self.o, tf.Tensor):
+            if self.o.shape.ndims == 0:
+                return red(f"T[x={self.o.numpy()}, {repr(self.o.dtype)}]")
+            return red(f"T[{self.o.shape}, {repr(self.o.dtype)}]")
+
+        if isinstance(self.o, tuple):
+            return repr(tuple(FormatObject(x) for x in self.o))
+
+        if isinstance(self.o, list):
+            return repr([FormatObject(x) for x in self.o])
+
+        return red(self.o)
 
 
 def p(*args, **kwargs):
-  time = datetime.now().strftime("%H:%M:%S")
+    time = green(datetime.now().strftime("%H:%M:%S"))
 
-  items = []
+    items = []
 
-  for arg in args:
-    items.append(format_object(arg))
+    for arg in args:
+        items.append(FormatObject(arg))
+        items.append(" ")
 
-  for k, v in kwargs.items():
-    items.append(f"{k}={format_object(v)}")
+    for k, v in kwargs.items():
+        items.append(yellow(f"{k}="))
+        items.append(FormatObject(v))
+        items.append(" ")
 
-  print(f"{Fore.GREEN}[{time}]{Style.RESET_ALL}{Fore.LIGHTRED_EX}", *items, Style.RESET_ALL)
+    print(time, *items, sep="")
 
 
 class CallObserver:
-  def __init__(self, obj):
-    self.name = obj.__class__.__name__
-    self.obj = obj
+    def __init__(self, obj):
+        self.name = obj.__class__.__name__
+        self.obj = obj
 
-  def __call__(self, *args, **kwargs):
-    p(f"{self.name}.__call__", *args, **kwargs)
-    return self.obj(*args, **kwargs)
+    def __call__(self, *args, **kwargs):
+        p(f"{self.name}.__call__", *args, **kwargs)
+        return self.obj(*args, **kwargs)

@@ -29,7 +29,7 @@ class TransformerDecoderLayer(nn.Module):
         self.use_mlp = use_mlp
         if self_attention:
             self.self_ln = nn.LayerNorm(dim, eps=1e-6, elementwise_affine=ln_scale_shift)
-            self.self_mha = nn.MultiheadAttention(dim, num_heads, dropout=drop_att)
+            self.self_mha = nn.MultiheadAttention(dim, num_heads, dropout=drop_att, batch_first=True)
         if cross_attention:
             self.cross_ln = nn.LayerNorm(dim, eps=1e-6, elementwise_affine=ln_scale_shift)
             if use_enc_ln:
@@ -37,7 +37,14 @@ class TransformerDecoderLayer(nn.Module):
             else:
                 self.enc_ln = nn.Identity()
             dim_x_att = dim if dim_x_att is None else dim_x_att
-            self.cross_mha = nn.MultiheadAttention(dim_x_att, num_heads, dropout=drop_att)
+            self.cross_mha = nn.MultiheadAttention(
+                embed_dim=dim,
+                num_heads=num_heads,
+                kdim=dim_x_att,
+                vdim=dim_x_att,
+                dropout=drop_att,
+                batch_first=True,
+            )
         if use_mlp:
             self.mlp = MLP(
                 num_layers=1,

@@ -23,7 +23,7 @@ class TransformerEncoderLayer(nn.Module):
         self.self_attention = self_attention
         if self_attention:
             self.mha_ln = nn.LayerNorm(dim, eps=1e-6, elementwise_affine=ln_scale_shift)
-            self.mha = nn.MultiheadAttention(dim, num_heads, dropout=drop_att)
+            self.mha = nn.MultiheadAttention(dim, num_heads, dropout=drop_att, batch_first=True)
         self.mlp = MLP(
             num_layers=1,
             dim=dim,

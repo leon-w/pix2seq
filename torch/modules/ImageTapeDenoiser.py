@@ -38,6 +38,7 @@ class ImageTapeDenoiser(nn.Module):
         cond_on_latent_n=0,
         cond_tape_writable=False,
         cond_dim=0,
+        cond_in_dim=0,
         cond_proj=True,
         cond_decoupled_read=False,
         xattn_enc_ln=False,
@@ -73,9 +74,8 @@ class ImageTapeDenoiser(nn.Module):
             expansion=4,
         )
         if cond_proj:
-            # TODO
             self.cond_proj = nn.Linear(
-                in_features=cond_dim,
+                in_features=cond_in_dim,
                 out_features=latent_dim if self._cond_on_latent else cond_dim,
             )
         else:
@@ -118,7 +118,7 @@ class ImageTapeDenoiser(nn.Module):
                     drop_path=0.0,
                     drop_units=0.0,
                     drop_att=0.0,
-                    dim_x_att=min(tape_dim, latent_dim),
+                    dim_x_att=tape_dim,
                     self_attention=False,
                     cross_attention=True,
                     use_mlp=True,
@@ -155,7 +155,7 @@ class ImageTapeDenoiser(nn.Module):
                         drop_path=0.0,
                         drop_units=0.0,
                         drop_att=0.0,
-                        dim_x_att=min(tape_dim, latent_dim),
+                        dim_x_att=latent_dim,
                         self_attention=False,
                         cross_attention=True,
                         use_mlp=True if tape_mlp_ratio > 0 else False,
@@ -173,8 +173,8 @@ class ImageTapeDenoiser(nn.Module):
                         drop_att=drop_att,
                     )
                 )
-        self.output_ln = nn.LayerNorm(normalized_shape=self._output_dim, eps=1e-6)
-        self.output_linear = nn.Linear(in_features=self._output_dim, out_features=self._output_dim)
+        self.output_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
+        self.output_linear = nn.Linear(in_features=tape_dim, out_features=self._output_dim)
 
         self.stem = nn.Conv2d(
             in_channels=image_channels,

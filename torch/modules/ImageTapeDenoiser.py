@@ -8,6 +8,7 @@ from .MLP import MLP
 from .ScalarEmbedding import ScalarEmbedding
 from .TransformerDecoder import TransformerDecoder
 from .TransformerEncoder import TransformerEncoder
+from .utils.debug_utils import p
 from .utils.pos_embedding import create_2d_pos_emb
 
 
@@ -72,6 +73,7 @@ class ImageTapeDenoiser(nn.Module):
             expansion=4,
         )
         if cond_proj:
+            # TODO
             self.cond_proj = nn.Linear(
                 in_features=cond_dim,
                 out_features=latent_dim if self._cond_on_latent else cond_dim,
@@ -254,12 +256,12 @@ class ImageTapeDenoiser(nn.Module):
                 cond = rearrange(cond, "b d -> b 1 d")
         return t, cond
 
-    def _x_to_tape(self, x: torch.Tensor):
+    def _x_to_tape(self, x: torch.Tensor) -> torch.Tensor:
         tokens = self.stem(x)
-        tokens = rearrange(tokens, "b c h w -> b (h w) c")
+        tokens = rearrange(tokens, "b c h w -> b c (h w)")
         tape_pos_emb = rearrange(self.tape_pos_emb, "n d -> 1 n d")
-        if self._tape_pos_encoding in ("sin_cos_plus_learned",):
-            tape_pos_emb += rearrange(self.tape_pos_emb_res, "n d -> 1 n d")
+        if self._tape_pos_encoding in ["sin_cos_plus_learned"]:
+            tape_pos_emb = tape_pos_emb + rearrange(self.tape_pos_emb_res, "n d -> 1 n d")
         tokens = self.stem_ln(tokens) + tape_pos_emb
         return tokens
 
@@ -279,7 +281,7 @@ class ImageTapeDenoiser(nn.Module):
 
         tape = self._x_to_tape(x)
         if self._self_cond in ["tape", "latent+tape"] and tape_prev is not None:
-            tape += self.tape_prev_ln(self.tape_prev_proj(tape_prev))
+            tape = tape + self.tape_prev_ln(self.tape_prev_proj(tape_prev))
         if self._cond_tape_writable and tape_r is not None:
             tape, tape_r = self._concat_tokens(tape, tape_r), None
 
@@ -295,14 +297,14 @@ class ImageTapeDenoiser(nn.Module):
     ) -> torch.Tensor:
         latent = self.latent_pos_emb
         if self._latent_pos_encoding in ["sin_cos_plus_learned"]:
-            latent += self.latent_pos_emb_res
+            latent = latent + self.latent_pos_emb_res
         latent = latent.repeat(batch_size, 1, 1)
         if self._time_on_latent and time_emb is not None:
             latent = self._concat_tokens(latent, time_emb)
         if self._cond_on_latent and cond is not None:
             latent = self._concat_tokens(latent, cond)
         if self._self_cond in ["latent", "latent+tape"] and latent_prev is not None:
-            latent += self.latent_prev_ln(self.latent_prev_proj(latent_prev))
+            latent = latent + self.latent_prev_ln(self.latent_prev_proj(latent_prev))
         return latent
 
     # done
@@ -317,6 +319,7 @@ class ImageTapeDenoiser(nn.Module):
         tape: torch.Tensor,
         tape_r: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        p("compute", latent=latent, tape=tape, tape_r=tape_r)
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
                 latent = self.read_cond_units[i](latent, tape_r)
@@ -356,18 +359,19 @@ class ImageTapeDenoiser(nn.Module):
     # done
     def forward(
         self,
-        x: torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor] | list[torch.Tensor],
+        x: torch.Tensor,
         t: torch.Tensor,
-        cond: torch.Tensor | None,
+        cond: torch.Tensor | None = None,
+        latent_prev: torch.Tensor | None = None,
+        tape_prev: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """x[0] in (bs, h, w, c), t in (bs,), cond in (bs, s, d)."""
-        if isinstance(x, tuple) or isinstance(x, list):
-            x, latent_prev, tape_prev = x
-            bs = x.shape[0]
-        else:
-            bs = x.shape[0]
-            latent_prev = torch.zeros(bs, *self.latent_shape)
-            tape_prev = torch.zeros(bs, *self.tape_shape)
+        bs = x.shape[0]
+        latent_prev = latent_prev or torch.zeros(bs, *self.latent_shape)
+        tape_prev = tape_prev or torch.zeros(bs, *self.tape_shape)
+
+        if self._cond_on_latent and cond is None:
+            raise ValueError("cond is None but cond_on_latent is True")
+
         time_emb, cond = self.initialize_cond(t, cond)
         tape, tape_r = self.initialize_tape(x, time_emb, cond, tape_prev)
         latent = self.initialize_latent(bs, time_emb, cond, latent_prev)

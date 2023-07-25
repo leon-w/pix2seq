@@ -9,7 +9,8 @@ from .ScalarEmbedding import ScalarEmbedding
 from .TransformerDecoder import TransformerDecoder
 from .TransformerEncoder import TransformerEncoder
 from .utils.debug_utils import p
-from .utils.pos_embedding import create_2d_pos_emb
+from .utils.initializer import initialize_variable_truncated_normal
+from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
 
 class ImageTapeDenoiser(nn.Module):
@@ -44,6 +45,9 @@ class ImageTapeDenoiser(nn.Module):
         xattn_enc_ln=False,
     ):
         super().__init__()
+        self._image_height = image_height
+        self._image_width = image_width
+        self._image_channels = image_channels
         self._n_rows = image_height // patch_size
         self._n_cols = image_width // patch_size
         self._num_tokens = self._n_rows * self._n_cols
@@ -61,6 +65,7 @@ class ImageTapeDenoiser(nn.Module):
         self._tape_slots = self._num_tokens
         self._tape_dim = tape_dim
         self._cond_dim = cond_dim = cond_dim if cond_dim > 0 else tape_dim
+        self._cond_in_dim = cond_in_dim
         self._latent_pos_encoding = latent_pos_encoding
         self._tape_pos_encoding = tape_pos_encoding
         assert self_cond in ("none", "latent", "tape", "latent+tape")
@@ -192,24 +197,22 @@ class ImageTapeDenoiser(nn.Module):
         latent_pos_encoding: str,
         time_scaling: float,
     ) -> None:
-        if latent_pos_encoding in ["sin_cos_plus_learned"]:
-            self.latent_pos_emb = create_2d_pos_emb(
-                pos_encoding="sin_cos",
-                n_rows=latent_slots,
-                n_cols=1,
-                dim=latent_dim,
-                normalization_max=time_scaling,
+        if latent_pos_encoding in ["sin_cos", "sin_cos_plus_learned"]:
+            self.register_buffer(
+                "latent_pos_emb",
+                create_2d_sin_cos_pos_emb(
+                    n_rows=latent_slots,
+                    n_cols=1,
+                    dim=latent_dim,
+                    normalization_max=time_scaling,
+                ),
             )
+        if latent_pos_encoding == "learned":
+            self.latent_pos_emb = nn.Parameter(torch.empty(latent_slots, latent_dim))
+            initialize_variable_truncated_normal(self.latent_pos_emb)
+        elif latent_pos_encoding == "sin_cos_plus_learned":
             self.latent_pos_emb_res = nn.Parameter(torch.empty(latent_slots, latent_dim))
             nn.init.zeros_(self.latent_pos_emb_res)
-        elif latent_pos_encoding in ["learned", "sin_cos"]:
-            self.latent_pos_emb = create_2d_pos_emb(
-                pos_encoding=latent_pos_encoding,
-                n_rows=latent_slots,
-                n_cols=1,
-                dim=latent_dim,
-                normalization_max=time_scaling,
-            )
         else:
             raise ValueError(f"Unknown latent_pos_encoding `{latent_pos_encoding}`")
 
@@ -220,24 +223,22 @@ class ImageTapeDenoiser(nn.Module):
         tape_pos_encoding: str,
         time_scaling: float,
     ) -> None:
-        if tape_pos_encoding in ["sin_cos_plus_learned"]:
-            self.tape_pos_emb = create_2d_pos_emb(
-                pos_encoding="sin_cos",
-                n_rows=self._n_rows,
-                n_cols=self._n_cols,
-                dim=tape_dim,
-                normalization_max=time_scaling,
+        if tape_pos_encoding in ["sin_cos", "sin_cos_plus_learned"]:
+            self.register_buffer(
+                "tape_pos_emb",
+                create_2d_sin_cos_pos_emb(
+                    n_rows=self._n_rows,
+                    n_cols=self._n_cols,
+                    dim=tape_dim,
+                    normalization_max=time_scaling,
+                ),
             )
+        if tape_pos_encoding == "learned":
+            self.tape_pos_emb = nn.Parameter(torch.empty(self._n_rows * self._n_cols, tape_dim))
+            initialize_variable_truncated_normal(self.tape_pos_emb)
+        elif tape_pos_encoding == "sin_cos_plus_learned":
             self.tape_pos_emb_res = nn.Parameter(torch.empty(self._n_rows * self._n_cols, tape_dim))
             nn.init.zeros_(self.tape_pos_emb_res)
-        elif tape_pos_encoding in ["learned", "sin_cos"]:
-            self.tape_pos_emb = create_2d_pos_emb(
-                pos_encoding=tape_pos_encoding,
-                n_rows=self._n_rows,
-                n_cols=self._n_cols,
-                dim=tape_dim,
-                normalization_max=time_scaling,
-            )
         else:
             raise ValueError(f"Unknown tape_pos_encoding `{tape_pos_encoding}`")
 
@@ -355,6 +356,10 @@ class ImageTapeDenoiser(nn.Module):
     def tape_shape(self) -> list[int]:
         return [self._tape_slots, self._tape_dim]
 
+    @property
+    def image_shape(self) -> list[int]:
+        return [self._image_channels, self._image_height, self._image_width]
+
     # done
     def forward(
         self,
@@ -365,8 +370,10 @@ class ImageTapeDenoiser(nn.Module):
         tape_prev: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         bs = x.shape[0]
-        latent_prev = latent_prev or torch.zeros(bs, *self.latent_shape)
-        tape_prev = tape_prev or torch.zeros(bs, *self.tape_shape)
+        if latent_prev is None:
+            latent_prev = torch.zeros(bs, *self.latent_shape, device=x.device)
+        if tape_prev is None:
+            tape_prev = torch.zeros(bs, *self.tape_shape, device=x.device)
 
         if self._cond_on_latent and cond is None:
             raise ValueError("cond is None but cond_on_latent is True")

@@ -1,9 +1,6 @@
 from einops import rearrange
 
 import torch
-import torch.nn as nn
-
-from .initializer import initialize_variable_truncated_normal
 
 
 # done
@@ -23,7 +20,7 @@ def positional_encoding(
 ) -> torch.Tensor:
     angle_rads = get_angles(
         rearrange(coords, "b -> b 1"),
-        rearrange(torch.arange(dim), "d -> 1 1 d"),
+        rearrange(torch.arange(dim, device=coords.device), "d -> 1 1 d"),
         dim,
     )
 
@@ -70,23 +67,16 @@ def get_2d_position_codes(
 
 
 # done
-def create_2d_pos_emb(
-    pos_encoding: str,
+def create_2d_sin_cos_pos_emb(
     n_rows: int,
     n_cols: int,
     dim: int,
     normalization_max=6.2831852,
 ) -> torch.Tensor:
-    if pos_encoding == "learned":
-        vis_pos_emb = nn.Parameter(torch.empty(n_rows * n_cols, dim))
-        initialize_variable_truncated_normal(vis_pos_emb)
-    elif pos_encoding == "sin_cos":
-        if n_rows == 1 or n_cols == 1:
-            sin_cos = get_1d_position_codes(n_rows * n_cols, dim, normalization_max=normalization_max)
-        else:
-            sin_cos = get_2d_position_codes(n_rows, n_cols, dim, normalization_max=normalization_max)
-        vis_pos_emb = sin_cos.view(n_rows * n_cols, dim)
+    if n_rows == 1 or n_cols == 1:
+        sin_cos = get_1d_position_codes(n_rows * n_cols, dim, normalization_max=normalization_max)
     else:
-        raise ValueError(f"Unknown pos encoding `{pos_encoding}`")
+        sin_cos = get_2d_position_codes(n_rows, n_cols, dim, normalization_max=normalization_max)
+    vis_pos_emb = sin_cos.view(n_rows * n_cols, dim)
 
     return vis_pos_emb

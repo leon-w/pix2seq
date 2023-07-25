@@ -319,7 +319,6 @@ class ImageTapeDenoiser(nn.Module):
         tape: torch.Tensor,
         tape_r: torch.Tensor | None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        p("compute", latent=latent, tape=tape, tape_r=tape_r)
         for i in range(len(self._num_layers)):
             if self._cond_decoupled_read:
                 latent = self.read_cond_units[i](latent, tape_r)
@@ -338,7 +337,7 @@ class ImageTapeDenoiser(nn.Module):
         tokens = self.output_linear(tokens)
         tokens = rearrange(
             tokens,
-            "b (h w) (p1 p2 c) -> b (h p1) (w p2) c",
+            "b (h w) (p1 p2 c) -> b c (h p1) (w p2)",
             h=self._n_rows,
             w=self._n_cols,
             p1=self._patch_size,

@@ -8,7 +8,6 @@ from .MLP import MLP
 from .ScalarEmbedding import ScalarEmbedding
 from .TransformerDecoder import TransformerDecoder
 from .TransformerEncoder import TransformerEncoder
-from .utils.debug_utils import p
 from .utils.initializer import initialize_variable_truncated_normal
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
@@ -364,14 +363,20 @@ class ImageTapeDenoiser(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        t: torch.Tensor,
+        t: torch.Tensor | float,
         cond: torch.Tensor | None = None,
         latent_prev: torch.Tensor | None = None,
         tape_prev: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        assert x.ndim == 4
         bs = x.shape[0]
+
+        if isinstance(t, float) or t.ndim == 0:
+            t = torch.full((bs,), t, device=x.device, dtype=torch.float32)
+
         if latent_prev is None:
             latent_prev = torch.zeros(bs, *self.latent_shape, device=x.device)
+
         if tape_prev is None:
             tape_prev = torch.zeros(bs, *self.tape_shape, device=x.device)
 

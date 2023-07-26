@@ -1,34 +1,8 @@
-from dataclasses import dataclass
-from itertools import cycle
-
-import numpy as np
-import torch_optimizer as optim
 import torchvision
-from diffusers import DDPMScheduler
-from diffusers.optimization import get_cosine_schedule_with_warmup
-from einops import rearrange
-from modules.ImageTapeDenoiser import ImageTapeDenoiser
-from torchvision.utils import save_image
-from tqdm import tqdm
+from diffusers.schedulers import DDPMScheduler
+from rin_pytorch import Rin, Trainer
 
-import torch
-import wandb
-from torch.rin_pytorch.RinPipeline import RinPipeline
-from torch.utils.data import DataLoader
-
-wandb.init(project="rin", name="pytorch-rin-cifar10-debug", mode="disabled")
-
-
-@dataclass
-class TrainConfig:
-    train_steps: int = 75_000
-    batch_size: int = 512
-    checkpoint_steps: int = 500
-
-
-config = TrainConfig()
-
-rin = ImageTapeDenoiser(
+rin = Rin(
     num_layers="2,2,2",
     latent_slots=128,
     latent_dim=512,
@@ -63,14 +37,7 @@ rin = ImageTapeDenoiser(
 
 noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="sigmoid")
 
-# pipeline
-pipeline = RinPipeline(rin, noise_scheduler)
-
-# # get number of parameters
-# num_params = sum(p.numel() for p in rin.parameters() if p.requires_grad)
-# print(f"Number of parameters: {num_params:,}")
-
-# dataset and dataloader
+# dataset
 image_transform = torchvision.transforms.Compose(
     [
         torchvision.transforms.ToTensor(),
@@ -83,102 +50,28 @@ dataset = torchvision.datasets.CIFAR10(
     download=True,
     transform=image_transform,
 )
-dataloader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
-dataloader = cycle(dataloader)
-dataloader_iter = iter(dataloader)
 
-# optimizer
-optimizer = torch.optim.Adam(rin.parameters(), lr=1e-3)
 
-# lr scheduler
-lr_scheduler = get_cosine_schedule_with_warmup(
-    optimizer=optimizer,
-    num_warmup_steps=10000,
-    num_training_steps=config.train_steps,
+# trainer
+
+trainer = Trainer(
+    rin_model=rin,
+    scheduler=noise_scheduler,
+    dataset=dataset,
+    train_batch_size=256,
+    self_cond_rate=0.9,
+    gradient_accumulate_every=1,
+    train_lr=1e-4,
+    lr_warmup_steps=10000,
+    train_num_steps=100000,
+    betas=(0.9, 0.99),
+    save_and_sample_every=1000,
+    num_samples=64,
+    results_folder="./results",
+    amp=False,
+    fp16=False,
+    split_batches=True,
+    num_workers=2,
 )
 
-
-def train():
-    rin.train()
-    step = 0
-    progress_bar = tqdm(total=config.train_steps, desc="Training")
-    while step < config.train_steps:
-        batch_img, batch_class = next(dataloader_iter)
-        batch_class = torch.nn.functional.one_hot(batch_class, num_classes=10).float()
-        batch_img = batch_img.to("cuda")
-        batch_class = batch_class.to("cuda")
-
-        timesteps = torch.randint(
-            low=0,
-            high=noise_scheduler.config.num_train_timesteps,
-            size=(config.batch_size,),
-            device="cuda",
-            dtype=torch.long,
-        )
-
-        noise = torch.randn_like(batch_img)
-        noisy_image = noise_scheduler.add_noise(batch_img, noise, timesteps)
-
-        save_image((noisy_image.cpu() + 1) / 2, "samples_tf.png", nrow=16)
-
-        latent_prev = None
-        tape_prev = None
-
-        timesteps_model = timesteps / noise_scheduler.config.num_train_timesteps
-
-        if torch.rand(1) < 0.9:
-            with torch.no_grad():
-                _, latent_prev, tape_prev = rin(
-                    x=noisy_image.detach(), t=timesteps_model.detach(), cond=batch_class.detach()
-                )
-
-        pred, _, _ = rin(
-            x=noisy_image.detach(),
-            t=timesteps_model.detach(),
-            cond=batch_class.detach(),
-            latent_prev=latent_prev,
-            tape_prev=tape_prev,
-        )
-
-        # break
-
-        loss = torch.nn.functional.mse_loss(pred, noise)
-
-        wandb.log(
-            {
-                "loss": loss.item(),
-                "lr": lr_scheduler.get_last_lr()[0],
-                "step": step,
-            },
-            step=step,
-        )
-
-        loss.backward()
-        optimizer.step()
-        lr_scheduler.step()
-        optimizer.zero_grad()
-
-        if step % config.checkpoint_steps == 0:
-            rin.eval()
-
-            samples = pipeline(batch_size=8 * 8, num_inference_steps=100)
-
-            torch.save(rin.state_dict(), "rin_latest.pt")
-
-            sample_grid = rearrange(samples.cpu().numpy(), "(b1 b2) c h w -> (b1 h) (b2 w) c", b1=8)
-            sample_grid = (sample_grid + 1) / 2
-
-            if np.isnan(sample_grid).any():
-                print(sample_grid)
-                print("NAN encountered!!")
-                exit()
-
-            wandb.log({"samples": wandb.Image(sample_grid)}, step=step)
-
-            rin.train()
-
-        step += 1
-        progress_bar.update(1)
-
-
-train()
+trainer.train()

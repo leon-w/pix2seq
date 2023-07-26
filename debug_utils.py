@@ -22,7 +22,7 @@ class FormatObject:
         self.o = o
 
     def __repr__(self):
-        if isinstance(self.o, tf.Tensor):
+        if isinstance(self.o, (tf.Tensor, tf.Variable)):
             if self.o.shape.ndims == 0:
                 return red(f"T[x={self.o.numpy()}, {repr(self.o.dtype)}]")
             return red(f"T[{self.o.shape}, {repr(self.o.dtype)}]")
@@ -65,7 +65,7 @@ def plot_dist(**kwargs):
     names = []
     for ax, (k, v) in zip(axs, kwargs.items()):
         names.append(k)
-        if isinstance(v, tf.Tensor):
+        if isinstance(v, (tf.Tensor, tf.Variable)):
             v = v.numpy()
 
         ax.hist(v.flatten(), bins=100, alpha=0.5, label=k, density=True)

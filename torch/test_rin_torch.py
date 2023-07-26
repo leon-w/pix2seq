@@ -1,9 +1,8 @@
-from modules.ImageTapeDenoiser import ImageTapeDenoiser
-from modules.utils.debug_utils import p, plot_dist
+from rin_pytorch import Rin
 
 import torch
 
-rin = ImageTapeDenoiser(
+rin = Rin(
     num_layers="2,2,2",
     latent_slots=128,
     latent_dim=512,
@@ -37,13 +36,7 @@ x = torch.randn((8, 3, 32, 32)).to("cuda")
 t = torch.randn((8,)).to("cuda")
 classes = torch.nn.functional.one_hot(torch.randint(0, 10, (8,)).to("cuda"), num_classes=10).float()
 
-# pass some data to build the model
 output, latent_prev, tape_prev = rin(x, t, classes)
-
-p(output_std=output.std(), output_mean=output.mean())
-
-p(x=x, t=t, classes=classes, output=output)
-plot_dist(x=x, output=output, latent_prev=latent_prev, tape_prev=tape_prev)
 
 for name, param in rin.named_parameters():
     print(name, param.shape)

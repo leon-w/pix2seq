@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from .utils.initializer import initialize_variable_variance_scaling
-from .utils.pos_embedding import positional_encoding
+from ..utils.initializer import initialize_variable_variance_scaling
+from ..utils.pos_embedding import positional_encoding
 
 
 class ScalarEmbedding(nn.Module):

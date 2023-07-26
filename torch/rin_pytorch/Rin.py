@@ -3,16 +3,12 @@ from einops import rearrange
 import torch
 import torch.nn as nn
 
-from .LambdaModule import LambdaModule
-from .MLP import MLP
-from .ScalarEmbedding import ScalarEmbedding
-from .TransformerDecoder import TransformerDecoder
-from .TransformerEncoder import TransformerEncoder
+from .modules import MLP, LambdaModule, ScalarEmbedding, TransformerDecoder, TransformerEncoder
 from .utils.initializer import initialize_linear, initialize_variable_truncated_normal
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
 
-class ImageTapeDenoiser(nn.Module):
+class Rin(nn.Module):
     def __init__(
         self,
         num_layers: str,

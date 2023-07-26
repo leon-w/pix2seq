@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from .utils.initializer import initialize_linear
+from ..utils.initializer import initialize_linear
 
 
 class FeedForwardLayer(nn.Module):

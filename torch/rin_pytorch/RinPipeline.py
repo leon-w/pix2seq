@@ -1,16 +1,17 @@
 from diffusers import DiffusionPipeline
 from diffusers.schedulers import DDPMScheduler
 from diffusers.utils import randn_tensor
-from modules.ImageTapeDenoiser import ImageTapeDenoiser
 
 import torch
 
+from .Rin import Rin
+
 
 class RinPipeline(DiffusionPipeline):
-    rin: ImageTapeDenoiser
+    rin: Rin
     scheduler: DDPMScheduler
 
-    def __init__(self, rin: ImageTapeDenoiser, scheduler: DDPMScheduler):
+    def __init__(self, rin: Rin, scheduler: DDPMScheduler):
         super().__init__()
 
         self.set_progress_bar_config(desc="Denoising...", position=1, leave=False)

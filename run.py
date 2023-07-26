@@ -155,8 +155,8 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
   n = 8
   samples, _ = model.sample(num_samples=n*n)
   sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
-  Image.fromarray((sample_grid * 255).astype('uint8')).show()
-  return
+  Image.fromarray((sample_grid * 255).astype('uint8')).save("samples.png")
+  exit()
 
   def single_step(examples):
     preprocessed_outputs = task.preprocess_batched(examples, training=False)

@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from colorama import Fore, Style
 
@@ -57,3 +58,23 @@ class CallObserver:
     def __call__(self, *args, **kwargs):
         p(f"{self.name}.__call__", *args, **kwargs)
         return self.obj(*args, **kwargs)
+
+
+def plot_dist(**kwargs):
+    fig, axs = plt.subplots(1, len(kwargs), figsize=(len(kwargs) * 5, 5), sharex=True)
+    names = []
+    for ax, (k, v) in zip(axs, kwargs.items()):
+        names.append(k)
+        if isinstance(v, tf.Tensor):
+            v = v.numpy()
+
+        ax.hist(v.flatten(), bins=100, alpha=0.5, label=k, density=True)
+        ax.axvline(0, color="black", linestyle="--", alpha=0.5)
+        ax.set_yticks([])
+        ax.set_xlabel("value")
+        ax.set_ylabel("density")
+        ax.legend()
+        ax.set_title(k)
+
+    fig.suptitle(", ".join(names))
+    fig.savefig(f"TF_dist_{'_'.join(names)}.png", dpi=300, bbox_inches="tight")

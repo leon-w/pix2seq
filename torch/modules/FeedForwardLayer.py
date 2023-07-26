@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from .utils.initializer import initialize_linear
+
 
 class FeedForwardLayer(nn.Module):
     # done
@@ -14,12 +16,12 @@ class FeedForwardLayer(nn.Module):
     ):
         super().__init__()
         self.dense1 = nn.Linear(dim, dim_hidden)
-        nn.init.zeros_(self.dense1.bias)
+        initialize_linear(self.dense1)
 
         self.dropout = nn.Dropout(drop_units)
 
         self.dense2 = nn.Linear(dim_hidden, dim)
-        nn.init.zeros_(self.dense2.bias)
+        initialize_linear(self.dense2)
 
         if use_ln:
             self.ln = nn.LayerNorm(dim_hidden, eps=1e-6, elementwise_affine=ln_scale_shift)

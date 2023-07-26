@@ -17,8 +17,10 @@ class ScalarEmbedding(nn.Module):
         self.scalar_encoding = lambda x: positional_encoding(x * scaling, dim)
         self.dense_0 = nn.Linear(dim, dim * expansion)
         initialize_variable_variance_scaling(self.dense_0.weight, scale=1.0)
+        nn.init.zeros_(self.dense_0.bias)
         self.dense_1 = nn.Linear(dim * expansion, dim * expansion)
         initialize_variable_variance_scaling(self.dense_1.weight, scale=1.0)
+        nn.init.zeros_(self.dense_1.bias)
 
     # done
     def forward(

@@ -8,7 +8,7 @@ from .MLP import MLP
 from .ScalarEmbedding import ScalarEmbedding
 from .TransformerDecoder import TransformerDecoder
 from .TransformerEncoder import TransformerEncoder
-from .utils.initializer import initialize_variable_truncated_normal
+from .utils.initializer import initialize_linear, initialize_variable_truncated_normal
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
 
@@ -82,6 +82,7 @@ class ImageTapeDenoiser(nn.Module):
                 in_features=cond_in_dim,
                 out_features=latent_dim if self._cond_on_latent else cond_dim,
             )
+            initialize_linear(self.cond_proj)
         else:
             self.cond_proj = nn.Identity()
 
@@ -179,6 +180,7 @@ class ImageTapeDenoiser(nn.Module):
                 )
         self.output_ln = nn.LayerNorm(normalized_shape=tape_dim, eps=1e-6)
         self.output_linear = nn.Linear(in_features=tape_dim, out_features=self._output_dim)
+        initialize_linear(self.output_linear)
 
         self.stem = nn.Conv2d(
             in_channels=image_channels,

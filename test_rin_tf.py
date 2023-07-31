@@ -32,17 +32,27 @@ rin = ImageTapeDenoiser(
     xattn_enc_ln=False,
 )
 
-x = tf.random.normal((8, 32, 32, 3))
-t = tf.random.uniform((8,))
-classes = tf.one_hot(tf.random.uniform((8,), maxval=10, dtype=tf.int32), depth=10)
+bs = 8
+x = tf.random.normal((bs, 32, 32, 3))
+t = tf.fill((bs,), 0.5)
+
+classes = tf.one_hot(tf.random.uniform((bs,), maxval=10, dtype=tf.int32), depth=10)
+
+
+# t_emb, _ = rin.initialize_cond(t, None, training=True)
+# t_emb = t_emb.numpy()
+
+# print(t_emb)
+
 
 # pass some data to build the model
 output, latent_prev, tape_prev = rin(x, t, classes)
 
-p(output_std=tf.math.reduce_std(output), output_mean=tf.math.reduce_mean(output))
+
+# p(output_std=tf.math.reduce_std(output), output_mean=tf.math.reduce_mean(output))
 
 p(x=x, t=t, classes=classes, output=output)
-plot_dist(x=x, output=output, latent_prev=latent_prev, tape_prev=tape_prev)
+# plot_dist(x=x, output=output, latent_prev=latent_prev, tape_prev=tape_prev)
 
-# for w in rin.weights:
-#     print(w.name, w.shape)
+for w in rin.weights:
+    p(w.name, w.shape)

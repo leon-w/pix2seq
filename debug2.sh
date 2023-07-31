@@ -8,7 +8,7 @@ python -m debugpy --listen 0.0.0.0:39203 \
     --config configs/config_diffusion_cifar10.py \
     --mode train \
     --model_dir results/debug \
-    --config.train.checkpoint_steps 1 \
+    --config.train.checkpoint_steps 4 \
     --config.train.keep_checkpoint_max 1 \
     --config.train.batch_size 8 \
-    --config.train.steps 1
+    --config.train.steps 4

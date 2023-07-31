@@ -1,4 +1,5 @@
 from rin_pytorch import Rin
+from rin_pytorch.utils import debug_utils
 
 import torch
 
@@ -32,11 +33,24 @@ rin = Rin(
     xattn_enc_ln=False,
 ).to("cuda")
 
-x = torch.randn((8, 3, 32, 32)).to("cuda")
-t = torch.randn((8,)).to("cuda")
-classes = torch.nn.functional.one_hot(torch.randint(0, 10, (8,)).to("cuda"), num_classes=10).float()
+bs = 64
+x = torch.randn((bs, 3, 32, 32)).to("cuda")
+# t = torch.full((bs,), 0.5).to("cuda")
+t = torch.rand((bs,)).to("cuda")
 
-output, latent_prev, tape_prev = rin(x, t, classes)
+classes = torch.nn.functional.one_hot(torch.randint(0, 10, (bs,)).to("cuda"), num_classes=10).float()
 
-for name, param in rin.named_parameters():
-    print(name, param.shape)
+
+# t_emb, _ = rin.initialize_cond(t, None)
+# t_emb = t_emb.detach().cpu().numpy()
+
+# print(t_emb)
+
+debug_utils.plot_model_weights(rin)
+
+
+# output, latent_prev, tape_prev = rin(x, t, classes)
+
+
+# for name, param in rin.named_parameters():
+#     print(name, param.shape)

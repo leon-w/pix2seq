@@ -1,6 +1,9 @@
+import math
+from collections import defaultdict
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+import numpy as np
 from colorama import Fore, Style
 
 import torch
@@ -81,6 +84,60 @@ def plot_dist(**kwargs):
 
     fig.suptitle(", ".join(names))
     fig.savefig(f"TORCH_dist_{'_'.join(names)}.png", dpi=300, bbox_inches="tight")
+
+
+class WeightTracker:
+    def __init__(self, module, enable=True):
+        self.module = module
+        self.enable = enable
+        self.weights = defaultdict(list)
+
+        self.snapshot()
+
+    def snapshot(self):
+        if not self.enable:
+            return
+
+        for name, param in self.module.named_parameters():
+            param = param.detach().cpu().numpy().copy()
+
+            self.weights[name].append(param)
+
+            while len(self.weights[name]) > 2:
+                self.weights[name].pop(0)
+
+        for name, values in self.weights.items():
+            if len(values) != 2:
+                continue
+            last, prev = values
+            diff = np.abs(last - prev).mean()
+
+            p(f"{name} diff", diff)
+
+
+def plot_model_weights(model):
+    params = {}
+    for name, param in model.named_parameters():
+        param = param.detach().cpu().numpy().copy()
+        params[name] = param
+
+    w = math.ceil(math.sqrt(len(params)))
+    h = math.ceil(len(params) / w)
+
+    fig, axs = plt.subplots(h, w, figsize=(w * 5, h * 5), sharex=True)
+    axs = axs.flatten()
+
+    for ax, (name, param) in zip(axs, params.items()):
+        ax.hist(param.flatten(), bins=100, alpha=0.5, label=name, density=True)
+        ax.axvline(0, color="black", linestyle="--", alpha=0.5)
+        ax.set_yticks([])
+        ax.set_xlabel("value")
+        ax.set_ylabel("density")
+        ax.legend()
+        ax.set_title(name)
+
+    fig.suptitle("Model weights")
+    fig.savefig(f"TORCH_model_weights.png", dpi=300, bbox_inches="tight")
 
 
 # [f"{k} -> {tuple(v.shape)}" for k, v in locals().items() if isinstance(v, torch.Tensor)]

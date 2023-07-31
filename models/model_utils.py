@@ -228,6 +228,7 @@ def build_optimizer(config, learning_rate):
     return optimizer
   elif config.optimizer == 'lamb':
     exclude_str = config.get('exclude_from_weight_decay', 'bias,beta,gamma,emb')
+    print("BUILDING OPTIMIZER", f"lr={learning_rate}, wd={config.weight_decay}, beta1={config.beta1}, beta2={config.beta2}, eps={config.eps}, exclude={exclude_str}")
     return tfa.optimizers.LAMB(
         learning_rate=learning_rate,
         weight_decay_rate=config.weight_decay,

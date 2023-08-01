@@ -354,9 +354,13 @@ class Rin(TapeDenoiser):  # pylint: disable=missing-docstring
             use_bias=True,
         )
 
+    @property
+    def output_shape(self) -> list[int]:
+        return [self._image_channels, self._image_height, self._image_width]
+
     def _x_to_tape(self, x):
         tokens = self.stem(x)
-        tokens = rearrange(tokens, "b h w d -> b (h w) d")
+        tokens = rearrange(tokens, "b d h w -> b (h w) d")
         tape_pos_emb = rearrange(self.tape_pos_emb, "n d -> 1 n d")
         if self._tape_pos_encoding in ["sin_cos_plus_learned"]:
             tape_pos_emb += rearrange(self.tape_pos_emb_res, "n d -> 1 n d")
@@ -367,7 +371,7 @@ class Rin(TapeDenoiser):  # pylint: disable=missing-docstring
         tokens = super().readout_tape(tape)
         tokens = rearrange(
             tokens,
-            "b (h w) (p1 p2 c) -> b (h p1) (w p2) c",
+            "b (h w) (p1 p2 c) -> b c (h p1) (w p2)",
             h=self._n_rows,
             w=self._n_cols,
             p1=self._patch_size,

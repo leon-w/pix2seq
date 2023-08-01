@@ -1,4 +1,13 @@
-from rin_keras_pytorch import Rin
+import os
+
+os.environ["KERAS_BACKEND"] = "torch"
+
+import keras_core as keras
+
+keras.backend.set_image_data_format("channels_first")
+
+import torchvision
+from rin_keras_pytorch import Rin, RinDiffusionModel, Trainer
 
 import torch
 
@@ -31,22 +40,12 @@ rin = Rin(
     xattn_enc_ln=False,
 ).to("cuda")
 
-bs = 64
-x = torch.randn((bs, 3, 32, 32)).to("cuda")
-# t = torch.full((bs,), 0.5).to("cuda")
-t = torch.rand((bs,)).to("cuda")
 
-classes = torch.nn.functional.one_hot(torch.randint(0, 10, (bs,)).to("cuda"), num_classes=10).float()
-
-output, latent_prev, tape_prev = rin(x, t, classes)
-
-# t_emb, _ = rin.initialize_cond(t, None)
-# t_emb = t_emb.detach().cpu().numpy()
-
-# print(t_emb)
-
-# debug_utils.plot_model_weights(rin)
-
-
-# for name, param in rin.named_parameters():
-#     print(name, param.shape)
+with torch.no_grad():
+    rin.eval()
+    rin(
+        x=torch.zeros(1, 3, 32, 32).to("cuda"),
+        t=0.0,
+        cond=torch.zeros(1, 10).to("cuda"),
+    )
+    rin.train()

@@ -3,13 +3,13 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 import keras_core as keras
+
+keras.backend.set_image_data_format("channels_first")
+
 import torchvision
 from rin_keras_pytorch import Rin, RinDiffusionModel, Trainer
 
 import torch
-
-keras.backend.set_image_data_format("channels_first")
-
 
 rin = Rin(
     num_layers="2,2,2",
@@ -44,10 +44,11 @@ rin = Rin(
 with torch.no_grad():
     rin.eval()
     rin(
-        x=torch.zeros(64, 3, 32, 32).to("cuda"),
+        x=torch.zeros(1, 3, 32, 32).to("cuda"),
         t=0.0,
-        cond=torch.zeros(64, 10).to("cuda"),
+        cond=torch.zeros(1, 10).to("cuda"),
     )
+    rin.train()
 
 diffusion_model = RinDiffusionModel(
     rin=rin,
@@ -71,8 +72,8 @@ trainer = Trainer(
     diffusion_model,
     dataset,
     train_num_steps=150_000,
-    batch_size=64,
+    batch_size=32,
     sample_every=1000,
-    lr=1e-4,
+    lr=5e-4,
 )
 trainer.train()

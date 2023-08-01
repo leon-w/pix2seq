@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch.nn as nn
 from ema_pytorch import EMA
 from torch.utils.data import DataLoader, Dataset
@@ -8,7 +10,7 @@ import torch
 import wandb
 
 from .. import Rin
-from . import debug_utils, diffusion_utils
+from . import diffusion_utils
 
 
 def cycle(iterable):
@@ -163,19 +165,43 @@ class Trainer:
         batch_size: int,
         sample_every: int,
         run_name: str = "debug",
+        results_folder: str = "results",
     ):
         self.diffusion_model = diffusion_model
         self.train_num_steps = train_num_steps
         self.sample_every = sample_every
+
+        self.results_folder = Path(results_folder)
+        self.results_folder.mkdir(exist_ok=True, parents=True)
 
         self.dataset = dataset
         self.dl = cycle(DataLoader(self.dataset, batch_size=batch_size))
 
         self.opt = torch.optim.Adam(self.diffusion_model.parameters(), lr=lr)
 
+        self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, T_max=train_num_steps)
+
         self.step = 0
 
         wandb.init(project="rin", name=run_name)
+
+    def save(self, milestone):
+        data = {
+            "step": self.step + 1,
+            "model": self.diffusion_model.denoiser.state_dict(),
+            "opt": self.opt.state_dict(),
+            "lr_scheduler": self.lr_scheduler.state_dict(),
+        }
+
+        torch.save(data, str(self.results_folder / f"model-{milestone}.pt"))
+
+    def load(self, milestone):
+        data = torch.load(str(self.results_folder / f"model-{milestone}.pt"))
+
+        self.step = data["step"]
+        self.diffusion_model.denoiser.load_state_dict(data["model"])
+        self.opt.load_state_dict(data["opt"])
+        self.lr_scheduler.load_state_dict(data["lr_scheduler"])
 
     def train(self):
         with tqdm(initial=self.step, total=self.train_num_steps) as pbar:
@@ -192,7 +218,7 @@ class Trainer:
                 self.opt.step()
 
                 pbar.set_description(f"loss: {loss.item():.4f}")
-                wandb.log({"loss": loss.item()}, step=self.step)
+                wandb.log({"loss": loss.item(), "lr": self.lr_scheduler.get_last_lr()[0]}, step=self.step)
 
                 self.step += 1
                 pbar.update(1)
@@ -201,6 +227,8 @@ class Trainer:
                     samples = self.diffusion_model.sample(num_samples=64, iterations=400, method="ddim")
                     samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1))
                     wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)
+
+                    self.save("latest")
 
                     del samples
 

@@ -18,9 +18,11 @@ class MLP(torch.nn.Module):
         ln_scale_shift=True,
     ):
         super().__init__()
-        self.num_layers = num_layers
-        self.mlp_layers = torch.nn.ModuleList(
-            [
+
+        self.mlp_layers = torch.nn.ModuleList()
+        self.layernorms = torch.nn.ModuleList()
+        for _ in range(num_layers):
+            self.mlp_layers.append(
                 FeedForwardLayer(
                     dim,
                     dim * mlp_ratio,
@@ -28,23 +30,19 @@ class MLP(torch.nn.Module):
                     use_ln=use_ffn_ln,
                     ln_scale_shift=ln_scale_shift,
                 )
-                for _ in range(num_layers)
-            ]
-        )
-        self.layernorms = torch.nn.ModuleList(
-            [
+            )
+            self.layernorms.append(
                 keras.layers.LayerNormalization(
                     epsilon=1e-6,
                     center=ln_scale_shift,
                     scale=ln_scale_shift,
                 )
-                for _ in range(num_layers)
-            ]
-        )
+            )
+
         self.dropp = DropPath(drop_path)
 
-    def forward(self, x):
-        for i in range(self.num_layers):
-            x_residual = self.mlp_layers[i](self.layernorms[i](x))
-            x = x + self.dropp(x_residual)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for mlp, ln in zip(self.mlp_layers, self.layernorms):
+            x_residual = self.dropp(mlp(ln(x)))
+            x = x + x_residual
         return x

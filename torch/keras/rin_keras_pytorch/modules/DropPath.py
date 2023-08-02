@@ -2,14 +2,12 @@ import torch
 
 
 class DropPath(torch.nn.Module):
-    # done
     def __init__(self, drop_rate=0.0):
         super().__init__()
 
         assert 0.0 <= drop_rate <= 1.0
         self.drop_rate = drop_rate
 
-    # done
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.drop_rate == 0.0 or not self.training:
             return x

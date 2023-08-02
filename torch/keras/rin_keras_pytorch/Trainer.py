@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from torch.utils.data import DataLoader, Dataset
+from torch_optimizer import Lamb
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
@@ -38,7 +39,8 @@ class Trainer:
         self.dataset = dataset
         self.dl = cycle(DataLoader(self.dataset, batch_size=batch_size))
 
-        self.opt = torch.optim.Adam(self.diffusion_model.parameters(), lr=lr)
+        # self.opt = torch.optim.Adam(self.diffusion_model.parameters(), lr=lr)
+        self.opt = Lamb(self.diffusion_model.parameters(), lr=lr, weight_decay=1e-2, eps=1e-8)
 
         self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, T_max=train_num_steps)
 

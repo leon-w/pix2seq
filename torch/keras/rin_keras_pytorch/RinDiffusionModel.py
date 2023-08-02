@@ -53,37 +53,36 @@ class RinDiffusionModel(torch.nn.Module):
         was_training = self.denoiser.training
         self.denoiser.eval()
         samples_shape = [num_samples, *self.denoiser.image_shape]
+        device = self.denoiser.device
         if self._conditional == "class":
             # generate random classes
-            cond = torch.randint(self._num_classes, [num_samples])
-            cond = torch.nn.functional.one_hot(cond, self._num_classes).float().cuda()
+            cond = torch.randint(self._num_classes, [num_samples], device=device)
+            cond = torch.nn.functional.one_hot(cond, self._num_classes).float()
         else:
             cond = None
 
-        ts = torch.ones([num_samples] + [1, 1, 1])
-        get_step = lambda t: ts * (1.0 - t / iterations)
+        get_step = lambda t: torch.full([num_samples, 1, 1, 1], 1.0 - t / iterations, device=device)
         if self._inference_schedule is None:
             time_transform = self.scheduler.time_transform
         else:
             time_transform = self.scheduler.get_time_transform(self._inference_schedule)
 
-        samples = self.scheduler.sample_noise(samples_shape).cuda()
-        noise_pred, data_pred = torch.zeros_like(samples).cuda(), torch.zeros_like(samples).cuda()
-        x0_clip_fn = diffusion_utils.get_x0_clipping_function("-1,1")
+        samples = self.scheduler.sample_noise(samples_shape, device=device)
+        data_pred = torch.zeros_like(samples, device=device)
 
         latent_prev = None
         tape_prev = None
-        for t in tqdm(torch.arange(iterations, dtype=torch.float32), desc="sampling", leave=False, position=1):
+        for t in tqdm(
+            torch.arange(iterations, dtype=torch.float32, device=device), desc="sampling", leave=False, position=1
+        ):
             time_step = get_step(t)
             time_step_p = torch.max(get_step(t + 1), torch.tensor(0.0))
-            gamma, gamma_prev = time_transform(time_step).cuda(), time_transform(time_step_p).cuda()
+            gamma, gamma_prev = time_transform(time_step), time_transform(time_step_p)
 
             pred_out, latent_prev, tape_prev = self.denoise(
                 samples, gamma, cond, latent_prev, tape_prev, training=False
             )
-            x0_eps = diffusion_utils.get_x0_eps(
-                samples, gamma, pred_out, self._pred_type, x0_clip_fn, truncate_noise=True
-            )
+            x0_eps = diffusion_utils.get_x0_eps(samples, gamma, pred_out, self._pred_type, truncate_noise=True)
             noise_pred, data_pred = x0_eps["noise_pred"], x0_eps["data_pred"]
             samples = self.scheduler.transition_step(
                 samples=samples,
@@ -98,9 +97,14 @@ class RinDiffusionModel(torch.nn.Module):
 
         return data_pred * 0.5 + 0.5  # convert -1,1 -> 0,1
 
-    def noise_denoise(self, images, labels, time_step=None, training=True):
+    def noise_denoise(
+        self,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        training=True,
+    ):
         images = images * 2.0 - 1.0
-        images_noised, noise, _, gamma = self.scheduler.add_noise(images, time_step=time_step)
+        images_noised, noise, _, gamma = self.scheduler.add_noise(images)
         latent_prev = None
         tape_prev = None
         if self._self_cond != "none" and self._self_cond_rate > 0.0:
@@ -120,24 +124,29 @@ class RinDiffusionModel(torch.nn.Module):
 
         denoise_out, _, _ = self.denoise(images_noised, gamma, labels, latent_prev, tape_prev, training=training)
 
-        x0_clip_fn = diffusion_utils.get_x0_clipping_function("-1,1")
-        pred_dict = diffusion_utils.get_x0_eps(
-            images_noised, gamma, denoise_out, self._pred_type, x0_clip_fn, truncate_noise=False
-        )
+        pred_dict = diffusion_utils.get_x0_eps(images_noised, gamma, denoise_out, self._pred_type, truncate_noise=False)
         return images, noise, images_noised, pred_dict
 
     def compute_loss(
-        self, images: torch.Tensor, noise: torch.Tensor, pred_dict: dict[str, torch.Tensor]
+        self,
+        images: torch.Tensor,
+        noise: torch.Tensor,
+        pred_dict: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         if self._loss_type == "x":
             loss = torch.mean(torch.square(images - pred_dict["data_pred"]))
         elif self._loss_type == "eps":
             loss = torch.mean(torch.square(noise - pred_dict["noise_pred"]))
         else:
-            raise ValueError(f"Unknown pred_type {self._pred_type}")
+            raise ValueError(f"Unknown loss_type {self._pred_type}")
         return loss
 
-    def forward(self, images: torch.Tensor, labels: torch.Tensor, training=True) -> torch.Tensor:
+    def forward(
+        self,
+        images: torch.Tensor,
+        labels: torch.Tensor,
+        training=True,
+    ) -> torch.Tensor:
         images, noise, _, pred_dict = self.noise_denoise(images, labels, training=training)
         loss = self.compute_loss(images, noise, pred_dict)
         return loss

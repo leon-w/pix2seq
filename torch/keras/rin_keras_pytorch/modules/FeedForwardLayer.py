@@ -25,5 +25,9 @@ class FeedForwardLayer(torch.nn.Module):
         else:
             self.ln = keras.layers.Identity()
 
-    def forward(self, x):
-        return self.dense2(self.dropout(self.ln(self.dense1(x)), training=self.training))
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.dense1(x)
+        x = self.ln(x)
+        x = self.dropout(x, training=self.training)
+        x = self.dense2(x)
+        return x

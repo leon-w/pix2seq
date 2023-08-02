@@ -1,5 +1,3 @@
-import keras_core as keras
-
 import torch
 
 from .TransformerEncoderLayer import TransformerEncoderLayer
@@ -20,16 +18,16 @@ class TransformerEncoder(torch.nn.Module):
         ln_scale_shift=True,
     ):
         super().__init__()
-        self.num_layers = num_layers
-        self.enc_layers = torch.nn.ModuleList(
-            [
+
+        self.enc_layers = torch.nn.Sequential(
+            *[
                 TransformerEncoderLayer(
-                    dim,
-                    mlp_ratio,
-                    num_heads,
-                    drop_path,
-                    drop_units,
-                    drop_att,
+                    dim=dim,
+                    mlp_ratio=mlp_ratio,
+                    num_heads=num_heads,
+                    drop_path=drop_path,
+                    drop_units=drop_units,
+                    drop_att=drop_att,
                     self_attention=self_attention,
                     use_ffn_ln=use_ffn_ln,
                     ln_scale_shift=ln_scale_shift,
@@ -39,6 +37,4 @@ class TransformerEncoder(torch.nn.Module):
         )
 
     def forward(self, x):
-        for i in range(self.num_layers):
-            x = self.enc_layers[i](x)
-        return x
+        return self.enc_layers(x)

@@ -1,5 +1,3 @@
-import keras_core as keras
-
 import torch
 
 from .TransformerDecoderLayer import TransformerDecoderLayer
@@ -24,16 +22,15 @@ class TransformerDecoder(torch.nn.Module):
         ln_scale_shift=True,
     ):
         super().__init__()
-        self.num_layers = num_layers
         self.dec_layers = torch.nn.ModuleList(
             [
                 TransformerDecoderLayer(
-                    dim,
-                    mlp_ratio,
-                    num_heads,
-                    drop_path,
-                    drop_units,
-                    drop_att,
+                    dim=dim,
+                    mlp_ratio=mlp_ratio,
+                    num_heads=num_heads,
+                    drop_path=drop_path,
+                    drop_units=drop_units,
+                    drop_att=drop_att,
                     dim_x_att=dim_x_att,
                     self_attention=self_attention,
                     cross_attention=cross_attention,
@@ -46,8 +43,12 @@ class TransformerDecoder(torch.nn.Module):
             ]
         )
 
-    def forward(self, x, enc):
-        for i in range(self.num_layers):
-            x = self.dec_layers[i](x, enc)
+    def forward(
+        self,
+        x: torch.Tensor,
+        enc: torch.Tensor,
+    ) -> torch.Tensor:
+        for dec_layer in self.dec_layers:
+            x = dec_layer(x=x, enc=enc)
 
         return x

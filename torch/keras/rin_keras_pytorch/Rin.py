@@ -4,11 +4,12 @@ from einops import rearrange
 import torch
 
 from .modules import MLP, LambdaModule, ScalarEmbedding, TransformerDecoder, TransformerEncoder
+from .utils.debug_utils import p
 from .utils.initializer import get_variable_initializer
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
 
-class TapeDenoiser(torch.nn.Module):
+class Rin(torch.nn.Module):
     def __init__(
         self,
         num_layers,
@@ -19,6 +20,10 @@ class TapeDenoiser(torch.nn.Module):
         tape_dim,
         tape_mlp_ratio,
         rw_num_heads,
+        image_height,
+        image_width,
+        image_channels,
+        patch_size,
         latent_pos_encoding="learned",
         tape_pos_encoding="learned",
         drop_path=0.0,
@@ -35,6 +40,17 @@ class TapeDenoiser(torch.nn.Module):
         xattn_enc_ln=False,
     ):
         super().__init__()
+
+        self._image_height = image_height
+        self._image_width = image_width
+        self._image_channels = image_channels
+
+        self._n_rows = image_height // patch_size
+        self._n_cols = image_width // patch_size
+        self._num_tokens = self._n_rows * self._n_cols
+        self._patch_size = patch_size
+        self._output_dim = patch_size**2 * image_channels
+
         self._num_layers = [int(i) for i in num_layers.split(",")]
         self._latent_slots = latent_slots
         self._time_on_latent = time_on_latent
@@ -146,6 +162,16 @@ class TapeDenoiser(torch.nn.Module):
                     drop_units=drop_units,
                     drop_att=drop_att,
                 )
+
+        self.stem = keras.layers.Conv2D(
+            filters=tape_dim,
+            kernel_size=patch_size,
+            strides=patch_size,
+            padding="VALID",
+            use_bias=True,
+            data_format="channels_first",
+        )
+
         self.output_ln = keras.layers.LayerNormalization(epsilon=1e-6, center=True, scale=True, name="output_ln")
         self.output_linear = keras.layers.Dense(self._output_dim, name="output_linear")
 
@@ -243,16 +269,10 @@ class TapeDenoiser(torch.nn.Module):
             tape = self.write_units[str(i)](tape, latent)
         return latent, tape
 
-    def readout_tape(self, tape):
-        tokens = self.output_linear(self.output_ln(tape[:, : self._num_tokens]))
-        return tokens
-
-    # done
     @property
     def latent_shape(self) -> list[int]:
         return [self._latent_slots, self._latent_dim]
 
-    # done
     @property
     def tape_shape(self) -> list[int]:
         return [self._tape_slots, self._tape_dim]
@@ -260,6 +280,44 @@ class TapeDenoiser(torch.nn.Module):
     @property
     def image_shape(self) -> list[int]:
         return [self._image_channels, self._image_height, self._image_width]
+
+    def _x_to_tape(self, x):
+        tokens = self.stem(x)
+        tokens = rearrange(tokens, "b d h w -> b (h w) d")
+        tape_pos_emb = rearrange(self.tape_pos_emb, "n d -> 1 n d")
+        if self._tape_pos_encoding in ["sin_cos_plus_learned"]:
+            tape_pos_emb += rearrange(self.tape_pos_emb_res, "n d -> 1 n d")
+        tokens = self.stem_ln(tokens) + tape_pos_emb
+        return tokens
+
+    def readout_tape(self, tape):
+        tokens = self.output_linear(self.output_ln(tape[:, : self._num_tokens]))
+        tokens = rearrange(
+            tokens,
+            "b (h w) (p1 p2 c) -> b c (h p1) (w p2)",
+            h=self._n_rows,
+            w=self._n_cols,
+            p1=self._patch_size,
+            p2=self._patch_size,
+        )
+        return tokens
+
+    @torch.no_grad()
+    def pass_dummy_data(self, num_classes: int | None = None) -> None:
+        was_training = self.training
+        self.eval()
+
+        self(
+            x=torch.zeros([1, *self.image_shape], device=self.device),
+            t=0.0,
+            cond=None if num_classes is None else torch.zeros([1, num_classes], device=self.device),
+        )
+
+        self.train(was_training)
+
+    @property
+    def device(self) -> torch.device:
+        return next(self.parameters()).device
 
     def forward(
         self,
@@ -290,91 +348,3 @@ class TapeDenoiser(torch.nn.Module):
         latent, tape = self.compute(latent, tape, tape_r)
         x = self.readout_tape(tape)
         return x, latent, tape[:, : self._tape_slots]
-
-
-class Rin(TapeDenoiser):  # pylint: disable=missing-docstring
-    """Deal with image data of shape (bsz, h, w, c)."""
-
-    def __init__(
-        self,
-        num_layers,
-        latent_slots,
-        latent_dim,
-        latent_mlp_ratio,
-        latent_num_heads,
-        tape_dim,
-        tape_mlp_ratio,
-        rw_num_heads,
-        image_height,
-        image_width,
-        image_channels,
-        patch_size,
-        latent_pos_encoding="learned",
-        tape_pos_encoding="learned",
-        drop_path=0.0,
-        drop_units=0.1,
-        drop_att=0.0,
-        time_scaling=1e4,
-        self_cond="none",
-        **kwargs,
-    ):
-        self._image_height = image_height
-        self._image_width = image_width
-        self._image_channels = image_channels
-
-        self._n_rows = image_height // patch_size
-        self._n_cols = image_width // patch_size
-        self._num_tokens = self._n_rows * self._n_cols
-        self._patch_size = patch_size
-        self._output_dim = patch_size**2 * image_channels
-        super().__init__(
-            num_layers=num_layers,
-            latent_slots=latent_slots,
-            latent_dim=latent_dim,
-            latent_mlp_ratio=latent_mlp_ratio,
-            latent_num_heads=latent_num_heads,
-            tape_dim=tape_dim,
-            tape_mlp_ratio=tape_mlp_ratio,
-            rw_num_heads=rw_num_heads,
-            latent_pos_encoding=latent_pos_encoding,
-            tape_pos_encoding=tape_pos_encoding,
-            drop_path=drop_path,
-            drop_units=drop_units,
-            drop_att=drop_att,
-            time_scaling=time_scaling,
-            self_cond=self_cond,
-            **kwargs,
-        )
-
-        self.stem = keras.layers.Conv2D(
-            filters=tape_dim,
-            kernel_size=patch_size,
-            strides=patch_size,
-            padding="VALID",
-            use_bias=True,
-        )
-
-    @property
-    def output_shape(self) -> list[int]:
-        return [self._image_channels, self._image_height, self._image_width]
-
-    def _x_to_tape(self, x):
-        tokens = self.stem(x)
-        tokens = rearrange(tokens, "b d h w -> b (h w) d")
-        tape_pos_emb = rearrange(self.tape_pos_emb, "n d -> 1 n d")
-        if self._tape_pos_encoding in ["sin_cos_plus_learned"]:
-            tape_pos_emb += rearrange(self.tape_pos_emb_res, "n d -> 1 n d")
-        tokens = self.stem_ln(tokens) + tape_pos_emb
-        return tokens
-
-    def readout_tape(self, tape):
-        tokens = super().readout_tape(tape)
-        tokens = rearrange(
-            tokens,
-            "b (h w) (p1 p2 c) -> b c (h p1) (w p2)",
-            h=self._n_rows,
-            w=self._n_cols,
-            p1=self._patch_size,
-            p2=self._patch_size,
-        )
-        return tokens

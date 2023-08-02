@@ -1,5 +1,5 @@
 from .Rin import Rin
-from .RinPipeline import RinPipeline
-from .utils.image_diffusion_model import RinDiffusionModel, Trainer
+from .RinDiffusionModel import RinDiffusionModel
+from .Trainer import Trainer
 
-__all__ = ["Rin", "RinPipeline", "Trainer", "RinDiffusionModel"]
+__all__ = ["Rin", "RinDiffusionModel", "Trainer"]

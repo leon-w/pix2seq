@@ -58,10 +58,10 @@ trainer = Trainer(
     diffusion_model,
     dataset,
     train_num_steps=100_000,
-    batch_size=256,
-    sample_every=1000,
+    batch_size=32,
+    sample_every=10,
     lr=1e-4,
-    results_folder="results/lamb-1e-4",
-    run_name="lamb-1e-4",
+    results_folder="results/debug",
+    run_name=None,
 )
 trainer.train()

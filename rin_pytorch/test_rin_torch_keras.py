@@ -7,9 +7,9 @@ import keras_core as keras
 keras.backend.set_image_data_format("channels_first")
 
 import torchvision
-from rin_keras_pytorch import Rin, RinDiffusionModel, Trainer
 
 import torch
+from rin_pytorch import Rin, RinDiffusionModel, Trainer
 
 rin = Rin(
     num_layers="2,2,2",

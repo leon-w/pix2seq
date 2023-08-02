@@ -3,7 +3,8 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 import torchvision
-from rin_keras_pytorch import Rin, RinDiffusionModel, Trainer
+
+from rin_pytorch import Rin, RinDiffusionModel, Trainer
 
 rin = Rin(
     num_layers="2,2,2",

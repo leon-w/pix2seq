@@ -100,7 +100,8 @@ class Trainer:
             self.diffusion_model, self.optimizer, self.lr_scheduler
         )
 
-        wandb.init(project="rin", name=run_name, mode="online" if log_to_wandb else "disabled")
+        if self.accelerator.is_main_process:
+            wandb.init(project="rin", name=run_name, mode="online" if log_to_wandb else "disabled")
 
     def save(self, milestone):
         if not self.accelerator.is_main_process:
@@ -133,7 +134,12 @@ class Trainer:
     def train(self):
         self.diffusion_model.train()
 
-        with tqdm(initial=self.step, total=self.train_num_steps) as pbar:
+        with tqdm(
+            initial=self.step,
+            total=self.train_num_steps,
+            disable=not self.accelerator.is_main_process,
+            desc="Training",
+        ) as pbar:
             while self.step < self.train_num_steps:
                 batch_img, batch_class = next(self.dl)
                 batch_class = torch.nn.functional.one_hot(batch_class, num_classes=10).float()
@@ -154,7 +160,8 @@ class Trainer:
                 }
 
                 pbar.set_postfix(logs)
-                wandb.log(logs, step=self.step)
+                if self.accelerator.is_main_process:
+                    wandb.log(logs, step=self.step)
 
                 self.step += 1
                 self.lr_scheduler.step()
@@ -164,8 +171,11 @@ class Trainer:
                     self.ema_diffusion_model.update()
 
                     if self.step % self.sample_every == 0:
-                        samples = self.diffusion_model.sample(num_samples=64, iterations=400, method="ddim")
-                        samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1))
+                        self.ema_diffusion_model.ema_model.eval()
+                        samples = self.ema_diffusion_model.ema_model.sample(
+                            num_samples=64, iterations=400, method="ddim"
+                        )
+                        samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1), padding=0)
                         wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)
 
                         self.save("latest")

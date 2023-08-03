@@ -49,8 +49,6 @@ class RinDiffusionModel(torch.nn.Module):
 
     @torch.no_grad()
     def sample(self, num_samples=64, iterations=100, method="ddim"):
-        was_training = self.denoiser.training
-        self.denoiser.eval()
         samples_shape = [num_samples, *self.denoiser.image_shape]
         device = self.denoiser.device
         if self._conditional == "class":
@@ -92,9 +90,10 @@ class RinDiffusionModel(torch.nn.Module):
                 sampler_name=method,
             )
 
-        self.denoiser.train(was_training)
+        samples = data_pred * 0.5 + 0.5  # convert -1,1 -> 0,1
+        samples.clamp_(0.0, 1.0)
 
-        return data_pred * 0.5 + 0.5  # convert -1,1 -> 0,1
+        return samples
 
     def noise_denoise(
         self,

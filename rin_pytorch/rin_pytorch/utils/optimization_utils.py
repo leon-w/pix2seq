@@ -17,8 +17,15 @@ def build_torch_parameters_to_keras_names_mapping(model: torch.nn.Module) -> dic
 
     def map_params(x):
         if isinstance(x, keras.layers.Layer):
-            for w in x.trainable_weights:
-                mapping[id(w.value)] = w.name
+            # due to a bug in keras_core (already fixed but not published yet)
+            # we need to do some extra work for Dense layers
+            if isinstance(x, keras.layers.Dense):
+                mapping[id(x.kernel.value)] = "kernel"
+                if x.use_bias:
+                    mapping[id(x.bias.value)] = "bias"
+            else:
+                for w in x.trainable_weights:
+                    mapping[id(w.value)] = w.name
 
     model.apply(map_params)
 

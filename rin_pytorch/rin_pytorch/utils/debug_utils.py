@@ -4,9 +4,8 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
-from colorama import Fore, Style
-
 import torch
+from colorama import Fore, Style
 
 
 def red(s):

@@ -1,5 +1,4 @@
 import keras_core as keras
-
 import torch
 
 from ..utils.initializer import get_variable_initializer

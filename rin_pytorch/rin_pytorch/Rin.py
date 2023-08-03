@@ -1,7 +1,6 @@
 import keras_core as keras
-from einops import rearrange
-
 import torch
+from einops import rearrange
 
 from .modules import MLP, LambdaModule, ScalarEmbedding, TransformerDecoderLayer, TransformerEncoder
 from .utils.debug_utils import p

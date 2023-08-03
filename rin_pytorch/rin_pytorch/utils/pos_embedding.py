@@ -1,6 +1,5 @@
-from einops import rearrange
-
 import torch
+from einops import rearrange
 
 
 # done

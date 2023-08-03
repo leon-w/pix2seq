@@ -1,6 +1,5 @@
-from tqdm import tqdm
-
 import torch
+from tqdm import tqdm
 
 from .Rin import Rin
 from .utils import diffusion_utils

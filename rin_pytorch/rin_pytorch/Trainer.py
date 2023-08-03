@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import torch_optimizer
+import torch
 from accelerate import Accelerator
 from diffusers.optimization import get_scheduler as get_lr_scheduler
 from ema_pytorch import EMA
@@ -8,25 +8,20 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
-import torch
 import wandb
 
 from .RinDiffusionModel import RinDiffusionModel
+from .utils.optimization_utils import (
+    build_torch_parameters_to_keras_names_mapping,
+    disable_weight_decay_for,
+    get_optimizer,
+)
 
 
 def cycle(iterable):
     while True:
         for x in iterable:
             yield x
-
-
-def get_optimizer(name, params, lr, **kwargs):
-    name = name.lower()
-    optimizer_cls = getattr(torch.optim, name, None)
-    if optimizer_cls is None:
-        optimizer_cls = torch_optimizer.get(name)
-
-    return optimizer_cls(params=params, lr=lr, **kwargs)
 
 
 class Trainer:
@@ -44,7 +39,9 @@ class Trainer:
         lr=1e-4,
         lr_warmup_steps=1000,
         optimizer_name="lamb",
+        optimizer_exclude_weight_decay=["bias", "beta", "gamma"],
         optimizer_kwargs=dict(weight_decay=1e-2),
+        clip_grad_norm=1.0,
         sample_every=1000,
         num_dl_workers=2,
         checkpoint_folder="results",
@@ -57,6 +54,7 @@ class Trainer:
         self.diffusion_model = diffusion_model
 
         self.train_num_steps = train_num_steps
+        self.clip_grad_norm = clip_grad_norm
         self.sample_every = sample_every
 
         dl = DataLoader(
@@ -74,7 +72,11 @@ class Trainer:
 
         self.optimizer = get_optimizer(
             optimizer_name,
-            self.diffusion_model.parameters(),
+            disable_weight_decay_for(
+                self.diffusion_model.parameters(),
+                optimizer_exclude_weight_decay,
+                build_torch_parameters_to_keras_names_mapping(self.diffusion_model),
+            ),
             lr=lr,
             **optimizer_kwargs,
         )
@@ -106,7 +108,7 @@ class Trainer:
 
         data = {
             "step": self.step,
-            "model": self.accelerator.get_state_dict(self.diffusion_model.denoiser),
+            "model": self.accelerator.get_state_dict(self.diffusion_model),
             "opt": self.optimizer.state_dict(),
             "lr_scheduler": self.lr_scheduler.state_dict(),
             "ema": self.ema_diffusion_model.state_dict(),
@@ -120,7 +122,7 @@ class Trainer:
         self.step = data["step"]
 
         diffusion_model = self.accelerator.unwrap_model(self.diffusion_model)
-        diffusion_model.denoiser.load_state_dict(data["model"])
+        diffusion_model.load_state_dict(data["model"])
 
         self.optimizer.load_state_dict(data["opt"])
         self.lr_scheduler.load_state_dict(data["lr_scheduler"])
@@ -129,7 +131,7 @@ class Trainer:
             self.ema_diffusion_model.load_state_dict(data["ema"])
 
     def train(self):
-        self.diffusion_model.denoiser.train()
+        self.diffusion_model.train()
 
         with tqdm(initial=self.step, total=self.train_num_steps) as pbar:
             while self.step < self.train_num_steps:
@@ -141,6 +143,9 @@ class Trainer:
                 loss = self.diffusion_model(batch_img, batch_class)
 
                 self.accelerator.backward(loss)
+
+                # self.accelerator.clip_grad_norm_(self.diffusion_model.parameters(), self.clip_grad_norm)
+
                 self.optimizer.step()
 
                 logs = {

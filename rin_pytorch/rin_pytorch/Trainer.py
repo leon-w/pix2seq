@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import torch_optimizer
+from accelerate import Accelerator
+from diffusers.optimization import get_scheduler as get_lr_scheduler
+from ema_pytorch import EMA
 from torch.utils.data import DataLoader, Dataset
-from torch_optimizer import Lamb
 from torchvision.utils import make_grid
 from tqdm import tqdm
 
@@ -17,54 +20,113 @@ def cycle(iterable):
             yield x
 
 
+def get_optimizer(name, params, lr, **kwargs):
+    name = name.lower()
+    optimizer_cls = getattr(torch.optim, name, None)
+    if optimizer_cls is None:
+        optimizer_cls = torch_optimizer.get(name)
+
+    return optimizer_cls(params=params, lr=lr, **kwargs)
+
+
 class Trainer:
     def __init__(
         self,
         diffusion_model: RinDiffusionModel,
+        ema_diffusion_model: RinDiffusionModel,  # since RinDiffusionModel can't be copied, we need a second one for EMA
         dataset: Dataset,
         train_num_steps: int,
-        lr: float,
-        batch_size: int,
-        sample_every: int,
-        run_name: str | None = None,
-        results_folder: str = "results",
+        train_batch_size=256,
+        split_batches=True,
+        fp16=False,
+        amp=False,
+        lr_scheduler_name="cosine",
+        lr=1e-4,
+        lr_warmup_steps=1000,
+        optimizer_name="lamb",
+        optimizer_kwargs=dict(weight_decay=1e-2),
+        sample_every=1000,
+        num_dl_workers=2,
+        checkpoint_folder="results",
+        run_name="rin",
+        log_to_wandb=True,
     ):
+        self.accelerator = Accelerator(split_batches=split_batches, mixed_precision="fp16" if fp16 else "no")
+        self.accelerator.native_amp = amp
+
         self.diffusion_model = diffusion_model
+
         self.train_num_steps = train_num_steps
         self.sample_every = sample_every
 
-        self.results_folder = Path(results_folder)
-        self.results_folder.mkdir(exist_ok=True, parents=True)
+        dl = DataLoader(
+            dataset,
+            batch_size=train_batch_size,
+            shuffle=True,
+            num_workers=num_dl_workers,
+            pin_memory=True,
+            persistent_workers=True,
+            drop_last=True,
+        )
 
-        self.dataset = dataset
-        self.dl = cycle(DataLoader(self.dataset, batch_size=batch_size))
+        dl = self.accelerator.prepare(dl)
+        self.dl = cycle(dl)
 
-        # self.opt = torch.optim.Adam(self.diffusion_model.parameters(), lr=lr)
-        self.opt = Lamb(self.diffusion_model.parameters(), lr=lr, weight_decay=1e-2, eps=1e-8)
+        self.optimizer = get_optimizer(
+            optimizer_name,
+            self.diffusion_model.parameters(),
+            lr=lr,
+            **optimizer_kwargs,
+        )
 
-        self.lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.opt, T_max=train_num_steps)
+        self.lr_scheduler = get_lr_scheduler(
+            lr_scheduler_name,
+            self.optimizer,
+            num_warmup_steps=lr_warmup_steps,
+            num_training_steps=train_num_steps,
+        )
+
+        if self.accelerator.is_main_process:
+            self.ema_diffusion_model = EMA(diffusion_model, ema_model=ema_diffusion_model)
+
+            self.checkpoint_folder = Path(checkpoint_folder)
+            self.checkpoint_folder.mkdir(exist_ok=True, parents=True)
 
         self.step = 0
 
-        wandb.init(project="rin", name=run_name, mode="disabled" if run_name is None else "online")
+        self.diffusion_model, self.optimizer, self.lr_scheduler = self.accelerator.prepare(
+            self.diffusion_model, self.optimizer, self.lr_scheduler
+        )
+
+        wandb.init(project="rin", name=run_name, mode="online" if log_to_wandb else "disabled")
 
     def save(self, milestone):
+        if not self.accelerator.is_main_process:
+            return
+
         data = {
-            "step": self.step + 1,
-            "model": self.diffusion_model.denoiser.state_dict(),
-            "opt": self.opt.state_dict(),
+            "step": self.step,
+            "model": self.accelerator.get_state_dict(self.diffusion_model.denoiser),
+            "opt": self.optimizer.state_dict(),
             "lr_scheduler": self.lr_scheduler.state_dict(),
+            "ema": self.ema_diffusion_model.state_dict(),
         }
 
-        torch.save(data, str(self.results_folder / f"model-{milestone}.pt"))
+        torch.save(data, self.checkpoint_folder / f"model-{milestone}.pt")
 
     def load(self, milestone):
-        data = torch.load(str(self.results_folder / f"model-{milestone}.pt"))
+        data = torch.load(self.checkpoint_folder / f"model-{milestone}.pt")
 
         self.step = data["step"]
-        self.diffusion_model.denoiser.load_state_dict(data["model"])
-        self.opt.load_state_dict(data["opt"])
+
+        diffusion_model = self.accelerator.unwrap_model(self.diffusion_model)
+        diffusion_model.denoiser.load_state_dict(data["model"])
+
+        self.optimizer.load_state_dict(data["opt"])
         self.lr_scheduler.load_state_dict(data["lr_scheduler"])
+
+        if self.accelerator.is_main_process:
+            self.ema_diffusion_model.load_state_dict(data["ema"])
 
     def train(self):
         self.diffusion_model.denoiser.train()
@@ -73,14 +135,13 @@ class Trainer:
             while self.step < self.train_num_steps:
                 batch_img, batch_class = next(self.dl)
                 batch_class = torch.nn.functional.one_hot(batch_class, num_classes=10).float()
-                batch_img = batch_img.to("cuda")
-                batch_class = batch_class.to("cuda")
+
+                self.optimizer.zero_grad()
 
                 loss = self.diffusion_model(batch_img, batch_class)
 
-                self.opt.zero_grad()
-                loss.backward()
-                self.opt.step()
+                self.accelerator.backward(loss)
+                self.optimizer.step()
 
                 logs = {
                     "loss": loss.item(),
@@ -91,15 +152,17 @@ class Trainer:
                 wandb.log(logs, step=self.step)
 
                 self.step += 1
-                pbar.update(1)
                 self.lr_scheduler.step()
+                pbar.update(1)
 
-                if self.step % self.sample_every == 0:
-                    samples = self.diffusion_model.sample(num_samples=64, iterations=400, method="ddim")
+                if self.accelerator.is_main_process:
+                    self.ema_diffusion_model.update()
 
-                    samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1))
-                    wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)
+                    if self.step % self.sample_every == 0:
+                        samples = self.diffusion_model.sample(num_samples=64, iterations=400, method="ddim")
+                        samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1))
+                        wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)
 
-                    self.save("latest")
+                        self.save("latest")
 
-                    del samples
+                        del samples

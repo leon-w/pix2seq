@@ -33,7 +33,7 @@ class ScalarEmbedding(torch.nn.Module):
         x = self.scalar_encoding(x)[0]
         if normalize:
             x_mean = torch.mean(x, -1, keepdim=True)
-            x_std = torch.std(x, -1, keepdim=True)
+            x_std = torch.std(x, -1, correction=0, keepdim=True)
             x = (x - x_mean) / x_std
         x = keras.activations.silu(self.dense_0(x))
         x = self.dense_1(x)

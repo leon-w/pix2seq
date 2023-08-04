@@ -226,22 +226,27 @@ def get_x0_eps(
     if pred_type == "eps":
         noise_pred = denoise_out
         data_pred = get_x0_from_eps(xt, gamma, noise_pred)
+        if clip_x0:
+            data_pred.clamp_(-1.0, 1.0)
         if truncate_noise:
             noise_pred = get_eps_from_x0(xt, gamma, data_pred)
     elif pred_type.startswith("x"):
         data_pred = denoise_out
+        if clip_x0:
+            data_pred.clamp_(-1.0, 1.0)
         noise_pred = get_eps_from_x0(xt, gamma, data_pred)
     elif pred_type.startswith("v"):
         v_pred = denoise_out
         data_pred = get_x0_from_v(xt, gamma, v_pred)
+        if clip_x0:
+            data_pred.clamp_(-1.0, 1.0)
         if truncate_noise:
             noise_pred = get_eps_from_x0(xt, gamma, data_pred)
         else:
             noise_pred = get_eps_from_v(xt, gamma, v_pred)
     else:
         raise ValueError(f"Unknown pred_type `{pred_type}`")
-    if clip_x0:
-        data_pred.clamp_(-1.0, 1.0)
+
     return {"noise_pred": noise_pred, "data_pred": data_pred}
 
 

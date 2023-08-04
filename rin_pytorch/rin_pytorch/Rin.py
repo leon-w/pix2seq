@@ -3,7 +3,6 @@ import torch
 from einops import rearrange
 
 from .modules import MLP, LambdaModule, ScalarEmbedding, TransformerDecoderLayer, TransformerEncoder
-from .utils.debug_utils import p
 from .utils.initializer import get_variable_initializer
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
@@ -173,6 +172,9 @@ class Rin(torch.nn.Module):
                     )
                 )
 
+        self.output_ln = keras.layers.LayerNormalization(epsilon=1e-6, center=True, scale=True)
+        self.output_linear = keras.layers.Dense(self._output_dim)
+
         self.stem = keras.layers.Conv2D(
             filters=tape_dim,
             kernel_size=patch_size,
@@ -181,9 +183,6 @@ class Rin(torch.nn.Module):
             use_bias=True,
             data_format="channels_first",  # to get pytorch channel order
         )
-
-        self.output_ln = keras.layers.LayerNormalization(epsilon=1e-6, center=True, scale=True)
-        self.output_linear = keras.layers.Dense(self._output_dim)
 
     def make_latent_pos(
         self,

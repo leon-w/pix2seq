@@ -151,11 +151,14 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
     global_step = checkpoint.global_step
     logging.info('Performing eval at step %d', global_step.numpy())
 
-
   n = 8
   samples, _ = model.sample(num_samples=n*n)
   sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
   Image.fromarray((sample_grid * 255).astype('uint8')).save("samples.png")
+
+  # weights = {w.name: w.numpy() for w in model.denoiser_ema.weights}
+  # np.save("rin_cifar10_pretrained_weights.npz", weights)
+
   exit()
 
   def single_step(examples):

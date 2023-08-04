@@ -53,6 +53,31 @@ def p(*args, **kwargs):
     print(time, *items)
 
 
+track_counts = defaultdict(int)
+
+
+def track(msg, **kwargs):
+    for k, v in kwargs.items():
+        if v is None:
+            v_str = "None"
+            p("WARNING", f"{k} is None")
+        elif isinstance(v, torch.Tensor):
+            t_np = v.detach().cpu().numpy()
+            v_str = f"Tensor[{t_np.shape}, {t_np.mean():.6f} | {t_np.std():.6f} | {t_np.min():.6f} | {t_np.max():.6f}]"
+
+            tensor_id = f"{msg}-{k}"
+
+            index = track_counts[tensor_id]
+
+            # save tensor
+            np.save(f"tensors/PT-{msg}-{index}-{k}.npy", t_np)
+
+            track_counts[tensor_id] += 1
+        else:
+            v_str = repr(v)
+        # p(msg, f"{k}={v_str}")
+
+
 class CallObserver(torch.nn.Module):
     def __init__(self, module):
         super().__init__()

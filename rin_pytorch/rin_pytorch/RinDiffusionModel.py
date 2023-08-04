@@ -30,7 +30,6 @@ class RinDiffusionModel(torch.nn.Module):
         self.scheduler = diffusion_utils.Scheduler(train_schedule)
 
         self.denoiser = rin
-        # self.denoiser_ema = EMA(rin)
 
     def denoise(
         self,

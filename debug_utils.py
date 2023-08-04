@@ -1,6 +1,8 @@
+from collections import defaultdict
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+import numpy as np
 import tensorflow as tf
 from colorama import Fore, Style
 
@@ -48,6 +50,31 @@ def p(*args, **kwargs):
         items.append(yellow(f"{k}=") + repr(FormatObject(v)))
 
     print(time, *items)
+
+
+track_counts = defaultdict(int)
+
+
+def track(msg, **kwargs):
+    for k, v in kwargs.items():
+        if v is None:
+            v_str = "None"
+            p("WARNING", f"{k} is None")
+        elif isinstance(v, (tf.Tensor, tf.Variable)):
+            t_np = v.numpy()
+            v_str = f"Tensor[{t_np.shape}, {t_np.mean():.6f} | {t_np.std():.6f} | {t_np.min():.6f} | {t_np.max():.6f}]"
+
+            tensor_id = f"{msg}-{k}"
+
+            index = track_counts[tensor_id]
+
+            # save tensor
+            np.save(f"rin_pytorch/tensors/TF-{msg}-{index}-{k}.npy", t_np)
+
+            track_counts[tensor_id] += 1
+        else:
+            v_str = repr(v)
+        # p(msg, f"{k}={v_str}")
 
 
 class CallObserver:

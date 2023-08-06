@@ -2,9 +2,15 @@ import keras_core as keras
 import torch
 import torch_optimizer
 
+from .lamb_custom import LambCustom
+
 
 def get_optimizer(name: str, params, lr: float, **kwargs) -> torch.optim.Optimizer:
     name = name.lower()
+
+    if name == "lamb":
+        return LambCustom(params=params, lr=lr, **kwargs)
+
     optimizer_cls = getattr(torch.optim, name, None)
     if optimizer_cls is None:
         optimizer_cls = torch_optimizer.get(name)
@@ -38,9 +44,12 @@ def disable_weight_decay_for(
     name_mapping: dict[int, str],
 ) -> list[dict]:
     group_default = {"params": []}
-    group_no_weight_decay = {"params": [], "weight_decay": 0.0}
+    group_no_weight_decay = {"params": [], "weight_decay": 0.0, "disable_layer_adaption": True}
 
     for param in parameters:
+        if not param.requires_grad:
+            continue
+
         if id(param) in name_mapping and any(exclude_name in name_mapping[id(param)] for exclude_name in exclude_names):
             group_no_weight_decay["params"].append(param)
         else:

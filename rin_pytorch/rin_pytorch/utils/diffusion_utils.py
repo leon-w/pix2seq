@@ -77,7 +77,7 @@ class Scheduler:
                 var_t = torch.exp(torch.log1p(-gamma_prev) - torch.log1p(-gamma_now)) * (1.0 - alpha_t)
             else:
                 raise ValueError(f"Unknown ddpm_var_type {ddpm_var_type}")
-            eps = self.sample_noise(data_pred.shape)
+            eps = self.sample_noise(data_pred.shape, device=data_pred.device)
             samples = x_mean + torch.sqrt(var_t) * eps
         return samples
 

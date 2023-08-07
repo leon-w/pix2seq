@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from colorama import Fore, Style
+from einops import rearrange
+from PIL import Image
 
 
 def red(s):
@@ -165,3 +167,11 @@ def plot_model_weights(model):
 
 
 # [f"{k} -> {tuple(v.shape)}" for k, v in locals().items() if isinstance(v, torch.Tensor)]
+
+
+def save_image_grid(images, filename):
+    n = math.sqrt(images.shape[0])
+    assert n.is_integer()
+
+    sample_grid = rearrange(images.detach().cpu().numpy(), "(b1 b2) c h w -> (b1 h) (b2 w) c", b1=int(n))
+    Image.fromarray((sample_grid * 255).astype("uint8")).save(filename)

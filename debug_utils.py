@@ -1,3 +1,4 @@
+import math
 from collections import defaultdict
 from datetime import datetime
 
@@ -5,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from colorama import Fore, Style
+from einops import rearrange
+from PIL import Image
 
 
 def red(s):
@@ -105,3 +108,11 @@ def plot_dist(**kwargs):
 
     fig.suptitle(", ".join(names))
     fig.savefig(f"TF_dist_{'_'.join(names)}.png", dpi=300, bbox_inches="tight")
+
+
+def save_image_grid(images, filename):
+    n = math.sqrt(images.shape[0])
+    assert n.is_integer()
+
+    sample_grid = rearrange(images.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=int(n))
+    Image.fromarray((sample_grid * 255).astype("uint8")).save(filename)

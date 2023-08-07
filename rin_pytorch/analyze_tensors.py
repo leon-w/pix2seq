@@ -34,7 +34,7 @@ if __name__ == "__main__":
         tf = np.load(tensor_tf)
         pt = np.load(tensor_pt)
 
-        if len(tf.shape) == 4:
+        if len(tf.shape) == 4 and tf.shape[3] == 3:
             # adjust channel order for images
             tf = tf.transpose((0, 3, 1, 2))
 

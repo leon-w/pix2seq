@@ -25,6 +25,7 @@ from architectures.transunet import TransUNet
 from models import diffusion_utils
 from models import model as model_lib
 import tensorflow as tf
+import numpy as np
 
 
 @model_lib.ModelRegistry.register('image_diffusion_model')
@@ -162,12 +163,17 @@ class Model(tf.keras.models.Model):
     x = denoiser(x, gamma, cond, training=training)
     return x
 
-  def sample(self, num_samples=100, iterations=100, method='ddim', **kwargs):
+  def sample(self, num_samples=100, iterations=100, method='ddim', seed=None, **kwargs):
     config = self.config
     samples_shape = [num_samples, *self.sample_shape]
     if config.conditional == 'class':
-      labels = tf.random.uniform(
-          [num_samples], 0, self.num_classes, dtype=tf.int32)
+      if seed is not None:
+        rng = np.random.default_rng(seed)
+        labels_np = rng.integers(0, self.num_classes, [num_samples]).astype(np.int32)
+        labels = tf.convert_to_tensor(labels_np)
+      else:
+        labels = tf.random.uniform(
+            [num_samples], 0, self.num_classes, dtype=tf.int32)
       labels = tf.one_hot(labels, self.num_classes)
     elif config.conditional == 'text':
       labels = kwargs['labels']
@@ -184,7 +190,8 @@ class Model(tf.keras.models.Model):
         x0_clip=self.x0_clip,
         self_cond=config.self_cond,
         guidance=config.guidance,
-        sampler_name=method)
+        sampler_name=method,
+        seed=seed)
     samples = (samples / config.b_scale / 2. + 0.5)  # convert -s,s -> 0,1
 
     if 'images' in kwargs and 'labels' in kwargs:

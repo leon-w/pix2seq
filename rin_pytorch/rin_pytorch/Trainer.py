@@ -173,7 +173,7 @@ class Trainer:
                     if self.step % self.sample_every == 0:
                         self.ema_diffusion_model.ema_model.eval()
                         samples = self.ema_diffusion_model.ema_model.sample(
-                            num_samples=64, iterations=100, method="ddpm"
+                            num_samples=64, iterations=100, method="ddpm", seed=42
                         )
                         samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1), padding=0)
                         wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)

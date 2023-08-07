@@ -5,7 +5,7 @@ from ml_collections import ConfigDict
 from PIL import Image
 
 from architectures.tape import ImageTapeDenoiser
-from debug_utils import p, track, vis_array
+from debug_utils import p, track
 from models.image_diffusion_model import Model as RinDiffusionModel
 
 # rin = ImageTapeDenoiser(
@@ -143,6 +143,6 @@ for i, w in enumerate(diffusion_model.denoiser_ema.weights):
     w.assign(weights[i])
 
 
-samples, _ = diffusion_model.sample(64, 2)
+samples, _ = diffusion_model.sample(64, 100, "ddim", seed=42)
 sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=8)
 Image.fromarray((sample_grid * 255).astype("uint8")).save("samples_tf.png")

@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import torch
 
 
@@ -35,29 +36,33 @@ class Scheduler:
     def time_transform(self, time_step):
         return self._time_transform(time_step)
 
-    def sample_noise(self, shape, device=None):
+    def sample_noise(self, shape, device=None, seed=None):
         """Sample noises."""
+        if seed is not None:
+            rng = np.random.default_rng(seed)
+            noise_np = rng.normal(size=shape).astype(np.float32)
+            return torch.from_numpy(noise_np).to(device)
         return torch.randn(shape, device=device)
 
     def add_noise(
         self,
         inputs: torch.Tensor,
-        time_step: torch.Tensor | float | None = None,
+        t: torch.Tensor | float | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         device = inputs.device
         time_step_shape = [inputs.size(0)] + [1] * (inputs.ndim - 1)
-        if time_step is None:
-            time_step = torch.rand(time_step_shape, device=device)
-        elif isinstance(time_step, float):
-            time_step = torch.full(time_step_shape, time_step, device=device)
+        if t is None:
+            t = torch.rand(time_step_shape, device=device)
+        elif isinstance(t, float):
+            t = torch.full(time_step_shape, t, device=device)
         else:
-            time_step = time_step.reshape(time_step_shape)
+            t = t.reshape(time_step_shape)
 
-        gamma = self.time_transform(time_step)
+        gamma = self.time_transform(t)
         noise = self.sample_noise(inputs.shape, device=device)
         inputs_noised = inputs * torch.sqrt(gamma) + noise * torch.sqrt(1 - gamma)
 
-        return inputs_noised, noise, time_step.squeeze(), gamma
+        return inputs_noised, noise, t.squeeze(), gamma
 
     def transition_step(self, samples, data_pred, noise_pred, gamma_now, gamma_prev, sampler_name):
         """Transition to states with a smaller time step."""

@@ -113,6 +113,6 @@ diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 
 diffusion_model.eval()
 
-samples = diffusion_model.sample(64, 10)
+samples = diffusion_model.sample(64, 100, "ddim", seed=42)
 sample_grid = rearrange(samples.detach().cpu().numpy(), "(b1 b2) c h w -> (b1 h) (b2 w) c", b1=8)
 Image.fromarray((sample_grid * 255).astype("uint8")).save("samples_pt.png")

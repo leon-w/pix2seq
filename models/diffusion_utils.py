@@ -17,6 +17,7 @@
 import functools
 import math
 import tensorflow as tf
+import numpy as np
 
 
 def sqrt(x):
@@ -60,8 +61,14 @@ class Scheduler(object):
   def time_transform(self, time_step):
     return self._time_transform(time_step)
 
-  def sample_noise(self, shape):
+  def sample_noise(self, shape, seed=None):
     """Sample noises."""
+    if seed is not None:
+      rng = np.random.default_rng(seed)
+      # sample the noise in channel first format so its the same as in pytorch
+      noise = rng.normal(size=[shape[i] for i in (0, 3, 1, 2)]).astype(np.float32)
+      noise = noise.transpose((0, 2, 3, 1))
+      return tf.convert_to_tensor(noise)
     return tf.random.normal(shape)
 
   def add_noise(self,
@@ -126,7 +133,8 @@ class Scheduler(object):
                self_cond='none',
                self_cond_decay=0.,
                guidance=0.,
-               sampler_name='ddim'):
+               sampler_name='ddim',
+               seed=None):
     """A sampling function.
 
     Args:
@@ -155,7 +163,7 @@ class Scheduler(object):
     time_transform = self.time_transform if schedule is None else (
         self.get_time_transform(schedule))
 
-    samples = self.sample_noise(samples_shape)
+    samples = self.sample_noise(samples_shape, seed=seed)
     noise_pred, data_pred = tf.zeros_like(samples), tf.zeros_like(samples)
     x0_clip_fn = get_x0_clipping_function(x0_clip)
     if hidden_shapes is None:

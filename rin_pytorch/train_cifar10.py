@@ -68,7 +68,7 @@ rin = Rin(**config["rin"]).cuda()
 rin.pass_dummy_data(num_classes=10)
 
 rin_ema = Rin(**config["rin"]).cuda()
-rin.pass_dummy_data(num_classes=10)
+rin_ema.pass_dummy_data(num_classes=10)
 
 diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 ema_diffusion_model = RinDiffusionModel(rin=rin_ema, **config["diffusion"])

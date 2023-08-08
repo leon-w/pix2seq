@@ -10,5 +10,5 @@ python -m debugpy --listen 0.0.0.0:39203 \
     --model_dir results/debug \
     --config.train.checkpoint_steps 4 \
     --config.train.keep_checkpoint_max 1 \
-    --config.train.batch_size 8 \
-    --config.train.steps 4
+    --config.train.batch_size 16 \
+    --config.train.steps 1

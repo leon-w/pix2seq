@@ -50,6 +50,7 @@ import tensorflow as tf
 import wandb
 from einops import rearrange
 from PIL import Image
+from debug_utils import p
 
 
 TRAIN = 'train'
@@ -224,6 +225,7 @@ def perform_evaluation(config, dataset, task, eval_steps, ckpt, strategy):
 def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
                      num_train_examples, strategy):
   """Main training logic."""
+  # steps_per_loop = 1
   with strategy.scope():
     wandb.tensorboard.patch(root_logdir=FLAGS.model_dir)
     name = f'{config.model.arch_name}_{config.dataset.tfds_name}'
@@ -269,8 +271,8 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
         summary_writer.flush()
       progress = cur_step / float(train_steps) * 100
       eta = (train_steps -  cur_step) / steps_per_sec / 60.
-      logging.info('Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins'.format(
-          cur_step, train_steps, progress, eta))
+      logging.info('Completed: {} / {} steps ({:.2f}%), ETA {:.2f} mins (loss={:.4f})'.format(
+          cur_step, train_steps, progress, eta, trainer.metrics['loss'].result().numpy()))
       trainer.reset()
 
       # generate samples and upload to wandb

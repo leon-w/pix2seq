@@ -40,7 +40,9 @@ if __name__ == "__main__":
 
         if tf.shape == pt.shape:
             diff = np.mean(np.abs(tf - pt))
+            diff_std = np.std(np.abs(tf - pt))
+            diff_max = np.max(np.abs(tf - pt))
             c = green if diff < 1e-5 else red
-            print(c(f"{name:<15}: {diff:.14f}"))
+            print(c(f"{name:<15}: {diff:.14f} ± {diff_std:.14f} | max: {diff_max:.14f}"))
         else:
             print(f"{name}: {tf.shape} != {pt.shape}")

@@ -9,7 +9,7 @@ from einops import rearrange
 from PIL import Image
 
 from rin_pytorch import Rin, RinDiffusionModel
-from rin_pytorch.utils.debug_utils import track
+from rin_pytorch.utils.debug_utils import p, track
 
 config = dict(
     rin=dict(
@@ -27,8 +27,8 @@ config = dict(
         patch_size=2,
         latent_pos_encoding="learned",
         tape_pos_encoding="learned",
-        drop_path=0.1,
-        drop_units=0.1,
+        drop_path=0.1,  # 0.1
+        drop_units=0.1,  # 0.1
         drop_att=0.0,
         time_scaling=1000,
         self_cond="latent",
@@ -71,7 +71,7 @@ load_weights(rin)
 # diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 # diffusion_model.train()
 
-rin.eval()
+rin.train()
 
 rng = np.random.default_rng(42)
 x = torch.from_numpy(rng.random((1, 3, 32, 32), dtype=np.float32)).cuda()
@@ -82,7 +82,7 @@ output, latent, tape = rin(x, t, cond)
 loss = torch.square(output - x).mean()
 loss.backward()
 
-print(loss.item())
+p(loss.item())
 
 for g in rin.parameters():
     if g.requires_grad:

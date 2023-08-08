@@ -205,8 +205,8 @@ class Rin(torch.nn.Module):
             init = keras.initializers.TruncatedNormal(mean=0.0, stddev=0.02)
             self.latent_pos_emb = torch.nn.Parameter(init((latent_slots, latent_dim)))
         elif latent_pos_encoding == "sin_cos_plus_learned":
-            param = keras.initializers.zeros()(shape=(latent_slots, latent_dim))
-            self.latent_pos_emb_res = torch.nn.Parameter(param)
+            init = keras.initializers.zeros()
+            self.latent_pos_emb_res = torch.nn.Parameter(init(latent_slots, latent_dim))
         else:
             raise ValueError(f"Unknown latent_pos_encoding `{latent_pos_encoding}`")
 

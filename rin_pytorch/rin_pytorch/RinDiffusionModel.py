@@ -104,14 +104,21 @@ class RinDiffusionModel(torch.nn.Module):
         images: torch.Tensor,
         labels: torch.Tensor,
         t: torch.Tensor | None = None,
+        seed: int | None = None,
     ):
         images = images * 2.0 - 1.0
         images_noised, noise, _, gamma = self.scheduler.add_noise(images, t=t)
-        latent_prev = None
-        tape_prev = None
+
+        bsz = images.size(0)
+        latent_prev = torch.zeros((bsz, *self.denoiser.latent_shape), device=images.device)
+        tape_prev = torch.zeros((bsz, *self.denoiser.tape_shape), device=images.device)
         if self._self_cond != "none" and self._self_cond_rate > 0.0:
-            bsz = images.size(0)
-            mask = torch.rand(bsz) < self._self_cond_rate
+            if seed is not None:
+                rng = np.random.default_rng(seed)
+                mask_np = rng.random(bsz) < self._self_cond_rate
+                mask = torch.from_numpy(mask_np).to(images.device)
+            else:
+                mask = torch.rand(bsz) < self._self_cond_rate
 
             if torch.any(mask):
                 with torch.no_grad():
@@ -121,11 +128,8 @@ class RinDiffusionModel(torch.nn.Module):
                         cond=labels[mask],
                     )
 
-                latent_prev = torch.zeros((bsz, *latent_prev_out.shape[1:]), device=latent_prev_out.device)
-                tape_prev = torch.zeros((bsz, *tape_prev_out.shape[1:]), device=tape_prev_out.device)
-
-                latent_prev[mask] = latent_prev_out
-                tape_prev[mask] = tape_prev_out
+                latent_prev[mask] = latent_prev_out.detach()
+                tape_prev[mask] = tape_prev_out.detach()
 
         denoise_out, _, _ = self.denoise(images_noised, gamma, labels, latent_prev, tape_prev)
 
@@ -141,9 +145,11 @@ class RinDiffusionModel(torch.nn.Module):
         pred_dict: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         if self._loss_type == "x":
-            loss = torch.nn.functional.mse_loss(images, pred_dict["data_pred"])
+            # loss = torch.nn.functional.mse_loss(images, pred_dict["data_pred"])
+            loss = torch.mean(torch.square(images - pred_dict["data_pred"]))
         elif self._loss_type == "eps":
-            loss = torch.nn.functional.mse_loss(noise, pred_dict["noise_pred"])
+            # loss = torch.nn.functional.mse_loss(noise, pred_dict["noise_pred"])
+            loss = torch.mean(torch.square(noise - pred_dict["noise_pred"]))
         else:
             raise ValueError(f"Unknown loss_type `{self._pred_type}`")
         return loss

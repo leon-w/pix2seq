@@ -116,7 +116,7 @@ class Model(tf.keras.models.Model):
   def sample_shape(self):
     return [self.image_size, self.image_size, 3]
 
-  def get_cond_denoise(self, labels):
+  def get_cond_denoise(self, labels, seed=None):
     config = self.config
     def cond_denoise(x, gamma, training, drop_label=False):
       gamma = tf.reshape(gamma, [-1])
@@ -129,7 +129,11 @@ class Model(tf.keras.models.Model):
             label_shape = [tf.shape(labels)[0], 1]
           else:
             label_shape = [tf.shape(labels)[0], 1, 1]
-          labels_w = tf.random.uniform(label_shape) > cond_dropout
+          if seed is not None:
+            rng = np.random.default_rng(seed)
+            labels_w = tf.convert_to_tensor(rng.uniform(0., 1., label_shape)) > cond_dropout
+          else:
+            labels_w = tf.random.uniform(label_shape) > cond_dropout
           labels_w = tf.cast(labels_w, tf.float32)
         if drop_label:
           labels_w = 0.

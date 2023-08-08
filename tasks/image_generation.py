@@ -283,7 +283,8 @@ def preprocess_image(image,
     raise ValueError(f'Unknown cropping method {cropping}')
   if training:
     if flipping == 'left_right':
-      image = tf.image.random_flip_left_right(image)
+      # image = tf.image.random_flip_left_right(image) # TODO: remove again
+      pass
     elif flipping != 'none':
       raise ValueError(f'Unknown flipping method {flipping}')
   image = tf.ensure_shape(image, [height, width, 3])   # Let arch knows shape.

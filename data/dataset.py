@@ -116,13 +116,13 @@ class Dataset(abc.ABC):
 
       if training:
         options = tf.data.Options()
-        options.deterministic = False
+        options.deterministic = True # TODO: remove again
         options.experimental_slack = True
         dataset = dataset.with_options(options)
         buffer_size = config.get('buffer_size', 0)
         if buffer_size <= 0:
           buffer_size = 10 * batch_size
-        dataset = dataset.shuffle(buffer_size)
+        # dataset = dataset.shuffle(buffer_size) # TODO: remove again
         dataset = dataset.repeat()
 
       dataset = dataset.map(

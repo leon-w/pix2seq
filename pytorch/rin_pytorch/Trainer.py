@@ -3,7 +3,6 @@ from pathlib import Path
 import torch
 from accelerate import Accelerator
 from diffusers.optimization import get_scheduler as get_lr_scheduler
-from ema_pytorch import EMA
 from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -44,6 +43,8 @@ class Trainer:
         clip_grad_norm=1.0,
         sample_every=1000,
         num_dl_workers=2,
+        ema_decay=0.9999,
+        ema_update_every=1,
         checkpoint_folder="results",
         run_name="rin",
         log_to_wandb=True,
@@ -56,6 +57,8 @@ class Trainer:
         self.train_num_steps = train_num_steps
         self.clip_grad_norm = clip_grad_norm
         self.sample_every = sample_every
+        self.ema_decay = ema_decay
+        self.ema_update_every = ema_update_every
 
         dl = DataLoader(
             dataset,
@@ -88,10 +91,12 @@ class Trainer:
             num_training_steps=train_num_steps,
         )
 
-        if self.accelerator.is_main_process:
-            self.ema_diffusion_model = EMA(diffusion_model, ema_model=ema_diffusion_model)
+        self.checkpoint_folder = Path(checkpoint_folder)
 
-            self.checkpoint_folder = Path(checkpoint_folder)
+        if self.accelerator.is_main_process:
+            self.ema_diffusion_model = ema_diffusion_model
+            self.ema_diffusion_model.requires_grad_(False)
+
             self.checkpoint_folder.mkdir(exist_ok=True, parents=True)
 
         self.step = 0
@@ -168,11 +173,18 @@ class Trainer:
                 pbar.update(1)
 
                 if self.accelerator.is_main_process:
-                    self.ema_diffusion_model.update()
+                    if self.step % self.ema_update_every == 0:
+                        # perform ema update
+                        with torch.no_grad():
+                            for ema_param, param in zip(
+                                self.ema_diffusion_model.parameters(), self.diffusion_model.parameters()
+                            ):
+                                if param.requires_grad:
+                                    ema_param.data.lerp_(param.data, 1 - self.ema_decay)
 
                     if self.step % self.sample_every == 0:
-                        self.ema_diffusion_model.ema_model.eval()
-                        samples = self.ema_diffusion_model.ema_model.sample(
+                        self.ema_diffusion_model.eval()
+                        samples = self.ema_diffusion_model.sample(
                             num_samples=64, iterations=100, method="ddpm", seed=42
                         )
                         samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1), padding=0)

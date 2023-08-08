@@ -42,8 +42,7 @@ class RinDiffusionModel(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         gamma = gamma.squeeze()
         assert gamma.ndim == 1
-        denoiser = self.denoiser if self.training else self.denoiser
-        output, latent, tape = denoiser(x, gamma, cond, latent_prev, tape_prev)
+        output, latent, tape = self.denoiser(x, gamma, cond, latent_prev, tape_prev)
         return output, latent, tape
 
     @torch.no_grad()

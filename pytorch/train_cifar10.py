@@ -3,7 +3,6 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 import torchvision
-
 from rin_pytorch import Rin, RinDiffusionModel, Trainer
 
 config = dict(
@@ -57,8 +56,8 @@ config = dict(
         clip_grad_norm=1.0,
         sample_every=1000,
         num_dl_workers=4,
-        checkpoint_folder="results/cifar10_original_v13",
-        run_name="rin_cifar10_original_v13",
+        checkpoint_folder="results/cifar10_original_v14",
+        run_name="rin_cifar10_original_v14",
         log_to_wandb=True,
     ),
 )

@@ -387,8 +387,17 @@ class Rin(torch.nn.Module):
     def load_weights_numpy(self, np_file):
         # load weights from numpy file relying on the order of parameters
         weights_np = list(np.load(np_file, allow_pickle=True).item().values())
-        trainable_params = list(p for p in self.parameters() if p.requires_grad)
+        trainable_params = [p for p in self.parameters() if p.requires_grad]
 
         for weight_np, param in zip(weights_np, trainable_params):
             data = torch.from_numpy(weight_np).to(param.device)
             param.data.copy_(data)
+
+    def save_weights_numpy(self, np_file):
+        # save weights to numpy file relying on the order of parameters
+        weights_np = {}
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                weights_np[name] = param.detach().cpu().numpy()
+
+        np.save(np_file, weights_np)

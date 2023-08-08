@@ -279,7 +279,7 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
       n = 8
       samples, _ = trainer.model.sample(num_samples=n*n)
       sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
-      wandb.log({"samples": wandb.Image(sample_grid), "step": cur_step})
+      wandb.log({"samples": wandb.Image(sample_grid)}, step=cur_step)
 
     logging.info('###########################################')
     logging.info('Training complete...')

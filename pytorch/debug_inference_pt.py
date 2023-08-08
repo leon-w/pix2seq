@@ -4,7 +4,6 @@ os.environ["KERAS_BACKEND"] = "torch"
 
 from einops import rearrange
 from PIL import Image
-
 from rin_pytorch import Rin, RinDiffusionModel
 from rin_pytorch.utils.debug_utils import track
 
@@ -49,12 +48,12 @@ config = dict(
 
 rin = Rin(**config["rin"]).cuda()
 rin.pass_dummy_data(num_classes=10)
-rin.load_weights_numpy("../rin_cifar10_fresh0_weights.npy")
+rin.load_weights_numpy("../rin_cifar10_pretrained_weights.npy")
 
-# diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
-# diffusion_model.eval()
+diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
+diffusion_model.eval()
 
-# samples = diffusion_model.sample(64, 100, "ddim", seed=42)
-# track("sample_grid", samples=samples)
-# sample_grid = rearrange(samples.detach().cpu().numpy(), "(b1 b2) c h w -> (b1 h) (b2 w) c", b1=8)
-# Image.fromarray((sample_grid * 255).clip(0, 255).astype("uint8")).save("samples_pt.png")
+samples = diffusion_model.sample(64, 100, "ddim", seed=42)
+track("sample_grid", samples=samples)
+sample_grid = rearrange(samples.detach().cpu().numpy(), "(b1 b2) c h w -> (b1 h) (b2 w) c", b1=8)
+Image.fromarray((sample_grid * 255).clip(0, 255).astype("uint8")).save("samples_pt.png")

@@ -57,8 +57,8 @@ config = dict(
         clip_grad_norm=1.0,
         sample_every=1000,
         num_dl_workers=4,
-        checkpoint_folder="results/cifar10_original_v9",
-        run_name="rin_cifar10_original_v9",
+        checkpoint_folder="results/cifar10_original_v13",
+        run_name="rin_cifar10_original_v13",
         log_to_wandb=True,
     ),
 )
@@ -67,13 +67,11 @@ config = dict(
 rin = Rin(**config["rin"]).cuda()
 rin.pass_dummy_data(num_classes=10)
 
-
 rin_ema = Rin(**config["rin"]).cuda()
-rin_ema.pass_dummy_data(num_classes=10)
+rin.pass_dummy_data(num_classes=10)
 
 diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 ema_diffusion_model = RinDiffusionModel(rin=rin_ema, **config["diffusion"])
-
 
 # dataset
 dataset = torchvision.datasets.CIFAR10(
@@ -94,6 +92,5 @@ trainer = Trainer(
     dataset,
     **config["trainer"],
 )
-
 
 trainer.train()

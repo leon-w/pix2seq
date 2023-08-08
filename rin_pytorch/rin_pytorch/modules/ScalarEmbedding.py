@@ -1,7 +1,6 @@
 import keras_core as keras
 import torch
 
-from ..utils.initializer import get_variable_initializer
 from ..utils.pos_embedding import positional_encoding
 
 
@@ -14,14 +13,9 @@ class ScalarEmbedding(torch.nn.Module):
     ):
         super().__init__()
         self.scalar_encoding = lambda x: positional_encoding(x * scaling, dim)
-        self.dense_0 = keras.layers.Dense(
-            dim * expansion,
-            kernel_initializer=get_variable_initializer(1.0),
-        )
-        self.dense_1 = keras.layers.Dense(
-            dim * expansion,
-            kernel_initializer=get_variable_initializer(1.0),
-        )
+        initializer = keras.initializers.VarianceScaling(scale=1.0, mode="fan_avg", distribution="uniform")
+        self.dense_0 = keras.layers.Dense(dim * expansion, kernel_initializer=initializer)
+        self.dense_1 = keras.layers.Dense(dim * expansion, kernel_initializer=initializer)
 
     def forward(
         self,

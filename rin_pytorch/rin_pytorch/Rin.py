@@ -1,9 +1,9 @@
 import keras_core as keras
+import numpy as np
 import torch
 from einops import rearrange
 
 from .modules import MLP, LambdaModule, ScalarEmbedding, TransformerDecoderLayer, TransformerEncoder
-from .utils.initializer import get_variable_initializer
 from .utils.pos_embedding import create_2d_sin_cos_pos_emb
 
 
@@ -202,8 +202,8 @@ class Rin(torch.nn.Module):
                 ),
             )
         if latent_pos_encoding == "learned":
-            param = get_variable_initializer()(shape=(latent_slots, latent_dim))
-            self.latent_pos_emb = torch.nn.Parameter(param)
+            init = keras.initializers.TruncatedNormal(mean=0.0, stddev=0.02)
+            self.latent_pos_emb = torch.nn.Parameter(init((latent_slots, latent_dim)))
         elif latent_pos_encoding == "sin_cos_plus_learned":
             param = keras.initializers.zeros()(shape=(latent_slots, latent_dim))
             self.latent_pos_emb_res = torch.nn.Parameter(param)
@@ -227,8 +227,8 @@ class Rin(torch.nn.Module):
                 ),
             )
         if tape_pos_encoding == "learned":
-            param = get_variable_initializer()(shape=(self._n_rows * self._n_cols, tape_dim))
-            self.tape_pos_emb = torch.nn.Parameter(param)
+            init = keras.initializers.TruncatedNormal(mean=0.0, stddev=0.02)
+            self.tape_pos_emb = torch.nn.Parameter(init((self._n_rows * self._n_cols, tape_dim)))
         elif tape_pos_encoding == "sin_cos_plus_learned":
             param = keras.initializers.zeros()(shape=(self._n_rows * self._n_cols, tape_dim))
             self.tape_pos_emb_res = torch.nn.Parameter(param)
@@ -383,3 +383,12 @@ class Rin(torch.nn.Module):
         latent, tape = self.compute(latent, tape, tape_r)
         x = self.readout_tape(tape)
         return x, latent, tape[:, : self._tape_slots]
+
+    def load_weights_numpy(self, np_file):
+        # load weights from numpy file relying on the order of parameters
+        weights_np = list(np.load(np_file, allow_pickle=True).item().values())
+        trainable_params = list(p for p in self.parameters() if p.requires_grad)
+
+        for weight_np, param in zip(weights_np, trainable_params):
+            data = torch.from_numpy(weight_np).to(param.device)
+            param.data.copy_(data)

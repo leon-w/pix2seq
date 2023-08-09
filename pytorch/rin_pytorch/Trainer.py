@@ -12,8 +12,8 @@ import wandb
 from .RinDiffusionModel import RinDiffusionModel
 from .utils.optimization_utils import (
     build_torch_parameters_to_keras_names_mapping,
-    disable_weight_decay_for,
     get_optimizer,
+    override_config_for_names,
 )
 
 
@@ -29,6 +29,7 @@ class Trainer:
         diffusion_model: RinDiffusionModel,
         ema_diffusion_model: RinDiffusionModel,  # since RinDiffusionModel can't be copied, we need a second one for EMA
         dataset: Dataset,
+        num_classes: int,
         train_num_steps: int,
         train_batch_size=256,
         split_batches=True,
@@ -40,13 +41,13 @@ class Trainer:
         optimizer_name="lamb",
         optimizer_exclude_weight_decay=["bias", "beta", "gamma"],
         optimizer_kwargs=dict(weight_decay=1e-2),
-        clip_grad_norm=1.0,
+        clip_grad_norm=None,
         sample_every=1000,
         num_dl_workers=2,
         ema_decay=0.9999,
         ema_update_every=1,
-        checkpoint_folder="results",
         sampling_kwargs=dict(iterations=100, method="ddim"),
+        checkpoint_folder="results",
         run_name="rin",
         log_to_wandb=True,
     ):
@@ -55,6 +56,7 @@ class Trainer:
 
         self.diffusion_model = diffusion_model
 
+        self.num_classes = num_classes
         self.train_num_steps = train_num_steps
         self.clip_grad_norm = clip_grad_norm
         self.sample_every = sample_every
@@ -77,9 +79,10 @@ class Trainer:
 
         self.optimizer = get_optimizer(
             optimizer_name,
-            disable_weight_decay_for(
+            override_config_for_names(
                 self.diffusion_model.parameters(),
                 optimizer_exclude_weight_decay,
+                {"weight_decay": 0.0, "disable_layer_adaption": True},
                 build_torch_parameters_to_keras_names_mapping(self.diffusion_model),
             ),
             lr=lr,
@@ -160,7 +163,7 @@ class Trainer:
         ) as pbar:
             while self.step < self.train_num_steps:
                 batch_img, batch_class = next(self.dl)
-                batch_class = torch.nn.functional.one_hot(batch_class, num_classes=10).float()
+                batch_class = torch.nn.functional.one_hot(batch_class, num_classes=self.num_classes).float()
 
                 self.optimizer.zero_grad()
 
@@ -168,7 +171,8 @@ class Trainer:
 
                 self.accelerator.backward(loss)
 
-                # self.accelerator.clip_grad_norm_(self.diffusion_model.parameters(), self.clip_grad_norm)
+                if self.clip_grad_norm is not None:
+                    self.accelerator.clip_grad_norm_(self.diffusion_model.parameters(), self.clip_grad_norm)
 
                 self.optimizer.step()
 

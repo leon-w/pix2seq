@@ -1,7 +1,3 @@
-import os
-
-os.environ["KERAS_BACKEND"] = "torch"
-
 import torchvision
 from rin_pytorch import Rin, RinDiffusionModel, Trainer
 
@@ -42,6 +38,7 @@ config = dict(
         loss_type="eps",
     ),
     trainer=dict(
+        num_classes=10,
         train_num_steps=150_000,
         train_batch_size=256,
         split_batches=True,
@@ -53,26 +50,28 @@ config = dict(
         optimizer_name="lamb",
         optimizer_exclude_weight_decay=["bias", "beta", "gamma"],
         optimizer_kwargs=dict(weight_decay=1e-2, betas=(0.9, 0.999), eps=1e-8),
-        clip_grad_norm=1.0,
+        clip_grad_norm=None,
         sample_every=1000,
         num_dl_workers=4,
-        checkpoint_folder="results/cifar10_original_v14",
-        run_name="rin_cifar10_original_v14",
+        ema_decay=0.9999,
+        ema_update_every=1,
+        sampling_kwargs=dict(iterations=100, method="ddim"),
+        checkpoint_folder="results/cifar10",
+        run_name="rin_cifar10",
         log_to_wandb=True,
     ),
 )
 
 
 rin = Rin(**config["rin"]).cuda()
-rin.pass_dummy_data(num_classes=10)
+rin.pass_dummy_data(num_classes=10)  # populate lazy model with weights
+diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 
 rin_ema = Rin(**config["rin"]).cuda()
 rin_ema.pass_dummy_data(num_classes=10)
-
-diffusion_model = RinDiffusionModel(rin=rin, **config["diffusion"])
 ema_diffusion_model = RinDiffusionModel(rin=rin_ema, **config["diffusion"])
 
-# dataset
+
 dataset = torchvision.datasets.CIFAR10(
     "/storage/slurm/wiemers/datasets/cifar10",
     train=True,
@@ -84,6 +83,7 @@ dataset = torchvision.datasets.CIFAR10(
         ]
     ),
 )
+
 
 trainer = Trainer(
     diffusion_model,

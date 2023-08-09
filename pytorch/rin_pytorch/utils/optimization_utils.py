@@ -38,26 +38,27 @@ def build_torch_parameters_to_keras_names_mapping(model: torch.nn.Module) -> dic
     return mapping
 
 
-def disable_weight_decay_for(
+def override_config_for_names(
     parameters,
-    exclude_names: list[str],
+    names: list[str],
+    config_override: dict,
     name_mapping: dict[int, str],
 ) -> list[dict]:
     group_default = {"params": []}
-    group_no_weight_decay = {"params": [], "weight_decay": 0.0, "disable_layer_adaption": True}
+    group_override = {"params": [], **config_override}
 
     for param in parameters:
         if not param.requires_grad:
             continue
 
-        if id(param) in name_mapping and any(exclude_name in name_mapping[id(param)] for exclude_name in exclude_names):
-            group_no_weight_decay["params"].append(param)
+        if id(param) in name_mapping and any(name in name_mapping[id(param)] for name in names):
+            group_override["params"].append(param)
         else:
             group_default["params"].append(param)
 
     if len(group_default["params"]) == 0:
-        return [group_no_weight_decay]
-    elif len(group_no_weight_decay["params"]) == 0:
+        return [group_override]
+    elif len(group_override["params"]) == 0:
         return [group_default]
     else:
-        return [group_default, group_no_weight_decay]
+        return [group_default, group_override]

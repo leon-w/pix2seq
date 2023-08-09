@@ -46,6 +46,7 @@ class Trainer:
         ema_decay=0.9999,
         ema_update_every=1,
         checkpoint_folder="results",
+        sampling_kwargs=dict(iterations=100, method="ddim"),
         run_name="rin",
         log_to_wandb=True,
     ):
@@ -59,6 +60,7 @@ class Trainer:
         self.sample_every = sample_every
         self.ema_decay = ema_decay
         self.ema_update_every = ema_update_every
+        self.sampling_kwargs = sampling_kwargs
 
         dl = DataLoader(
             dataset,
@@ -108,33 +110,44 @@ class Trainer:
         if self.accelerator.is_main_process:
             wandb.init(project="rin", name=run_name, mode="online" if log_to_wandb else "disabled")
 
-    def save(self, milestone):
+    def save(self, milestone, absolute=False):
         if not self.accelerator.is_main_process:
             return
 
         data = {
             "step": self.step,
             "model": self.accelerator.get_state_dict(self.diffusion_model),
+            "ema_model": self.ema_diffusion_model.state_dict(),
             "opt": self.optimizer.state_dict(),
             "lr_scheduler": self.lr_scheduler.state_dict(),
-            "ema": self.ema_diffusion_model.state_dict(),
         }
 
-        torch.save(data, self.checkpoint_folder / f"model-{milestone}.pt")
+        if absolute:
+            checkpoint_file = milestone
+        else:
+            checkpoint_file = self.checkpoint_folder / f"model-{milestone}.pt"
 
-    def load(self, milestone):
-        data = torch.load(self.checkpoint_folder / f"model-{milestone}.pt")
+        torch.save(data, checkpoint_file)
+
+    def load(self, milestone, absolute=False):
+        if absolute:
+            checkpoint_file = milestone
+        else:
+            checkpoint_file = self.checkpoint_folder / f"model-{milestone}.pt"
+
+        data = torch.load(checkpoint_file)
 
         self.step = data["step"]
 
         diffusion_model = self.accelerator.unwrap_model(self.diffusion_model)
         diffusion_model.load_state_dict(data["model"])
 
-        self.optimizer.load_state_dict(data["opt"])
-        self.lr_scheduler.load_state_dict(data["lr_scheduler"])
-
         if self.accelerator.is_main_process:
-            self.ema_diffusion_model.load_state_dict(data["ema"])
+            self.ema_diffusion_model.load_state_dict(data["ema_model"])
+
+        self.optimizer.load_state_dict(data["opt"])
+
+        self.lr_scheduler.load_state_dict(data["lr_scheduler"])
 
     def train(self):
         self.diffusion_model.train()
@@ -177,17 +190,18 @@ class Trainer:
                         # perform ema update
                         with torch.no_grad():
                             for ema_param, param in zip(
-                                self.ema_diffusion_model.parameters(), self.diffusion_model.parameters()
+                                self.ema_diffusion_model.parameters(),
+                                self.diffusion_model.parameters(),
                             ):
                                 if param.requires_grad:
                                     ema_param.data.lerp_(param.data, 1 - self.ema_decay)
 
                     if self.step % self.sample_every == 0:
                         self.ema_diffusion_model.eval()
-                        samples = self.ema_diffusion_model.sample(
-                            num_samples=64, iterations=100, method="ddpm", seed=42
-                        )
-                        samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1), padding=0)
+                        n = 8
+                        samples = self.ema_diffusion_model.sample(num_samples=n * n, **self.sampling_kwargs)
+
+                        samples = make_grid(samples, nrow=n, normalize=True, range=(0, 1), padding=0)
                         wandb.log({"samples": [wandb.Image(samples)]}, step=self.step)
 
                         self.save("latest")

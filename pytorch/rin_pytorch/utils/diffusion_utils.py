@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import torch
 
 
@@ -37,12 +36,10 @@ class Scheduler:
         return self._time_transform(time_step)
 
     def sample_noise(self, shape, device=None, seed=None):
-        """Sample noises."""
+        generator = None
         if seed is not None:
-            rng = np.random.default_rng(seed)
-            noise_np = rng.normal(size=shape).astype(np.float32)
-            return torch.from_numpy(noise_np).to(device)
-        return torch.randn(shape, device=device)
+            generator = torch.Generator(device=device).manual_seed(seed)
+        return torch.randn(shape, device=device, generator=generator)
 
     def add_noise(
         self,

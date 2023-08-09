@@ -46,17 +46,18 @@ class RinDiffusionModel(torch.nn.Module):
         return output, latent, tape
 
     @torch.no_grad()
-    def sample(self, num_samples=64, iterations=100, method="ddim", seed=None):
+    def sample(self, num_samples=64, iterations=100, method="ddim", seed=None, class_override=None):
         samples_shape = [num_samples, *self.denoiser.image_shape]
         device = self.denoiser.device
         if self._conditional == "class":
             # generate random classes
-            if seed is not None:
-                rng = np.random.default_rng(seed)
-                cond_np = rng.integers(0, self._num_classes, size=[num_samples])
-                cond = torch.from_numpy(cond_np).to(device)
+            if class_override is not None:
+                cond = torch.full([num_samples], class_override, device=device, dtype=torch.long)
             else:
-                cond = torch.randint(self._num_classes, [num_samples], device=device)
+                generator = None
+                if seed is not None:
+                    generator = torch.Generator(device=device).manual_seed(seed)
+                cond = torch.randint(self._num_classes, [num_samples], device=device, generator=generator)
             cond = torch.nn.functional.one_hot(cond, self._num_classes).float()
         else:
             cond = None
@@ -103,7 +104,6 @@ class RinDiffusionModel(torch.nn.Module):
         images: torch.Tensor,
         labels: torch.Tensor,
         t: torch.Tensor | None = None,
-        seed: int | None = None,
     ):
         images = images * 2.0 - 1.0
         images_noised, noise, _, gamma = self.scheduler.add_noise(images, t=t)
@@ -112,12 +112,7 @@ class RinDiffusionModel(torch.nn.Module):
         latent_prev = torch.zeros((bsz, *self.denoiser.latent_shape), device=images.device)
         tape_prev = torch.zeros((bsz, *self.denoiser.tape_shape), device=images.device)
         if self._self_cond != "none" and self._self_cond_rate > 0.0:
-            if seed is not None:
-                rng = np.random.default_rng(seed)
-                mask_np = rng.random(bsz) < self._self_cond_rate
-                mask = torch.from_numpy(mask_np).to(images.device)
-            else:
-                mask = torch.rand(bsz) < self._self_cond_rate
+            mask = torch.rand(bsz) < self._self_cond_rate
 
             if torch.any(mask):
                 with torch.no_grad():

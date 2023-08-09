@@ -19,6 +19,8 @@ import math
 import tensorflow as tf
 import numpy as np
 
+from debug_utils import p, track
+
 
 def sqrt(x):
   return tf.math.sqrt(x)
@@ -73,19 +75,25 @@ class Scheduler(object):
 
   def add_noise(self,
                 inputs,
-                time_step=None):
+                time_step=None,
+                seed=None):
     """Forword process."""
     bsz = tf.shape(inputs)[0]
     ndim = inputs.shape.rank
     time_step_shape = [bsz] + [1] * (ndim - 1)
     if time_step is None:
-      time_step = tf.random.uniform(time_step_shape, 0, 1, dtype=tf.float32)
+      if seed is not None:
+        rng = np.random.default_rng(seed)
+        time_step_np = rng.uniform(size=time_step_shape).astype(np.float32)
+        time_step = tf.convert_to_tensor(time_step_np)
+      else:
+        time_step = tf.random.uniform(time_step_shape, 0, 1, dtype=tf.float32)
     elif isinstance(time_step, float):
       time_step = tf.ones(time_step_shape, dtype=tf.float32) * time_step
     else:
       time_step = tf.reshape(time_step, time_step_shape)
     gamma = self.time_transform(time_step)
-    noise = self.sample_noise(tf.shape(inputs))
+    noise = self.sample_noise(tf.shape(inputs), seed=seed)
     inputs_noised = inputs * sqrt(gamma) + noise * sqrt(1 - gamma)
     return inputs_noised, noise, time_step, gamma
 
@@ -487,7 +495,8 @@ def add_self_cond_hidden(x_noised,
                          num_sc_examples,
                          hidden_shapes,
                          drop_rate=0.,
-                         training=True):
+                         training=True,
+                         seed=None):
   """Returns inputs (with self-cond hiddens) to denoising networks."""
   bsz = tf.shape(x_noised)[0]  # assuming bsz > 1
   x_noised_p = x_noised[:num_sc_examples]
@@ -497,7 +506,12 @@ def add_self_cond_hidden(x_noised,
   pred_out = denoise_f(tuple([x_noised_p] + placeholders1), gamma_p, training)
   hiddens = [tf.concat([u, v], 0) for u, v in zip(pred_out[1:], placeholders2)]
   if drop_rate > 0:  # The rate of masking out self-cond hiddens.
-    masks = tf.cast(tf.random.uniform([bsz]) > drop_rate, tf.float32)
+    if seed is not None:
+      rng = np.random.default_rng(seed)
+      masks = rng.random(bsz) < (1 - drop_rate)
+      masks = tf.convert_to_tensor(masks, tf.float32)
+    else:
+      masks = tf.cast(tf.random.uniform([bsz]) > drop_rate, tf.float32)
     expand_dims = lambda x, h: tf.reshape(x, [bsz] + [1] * (h.shape.ndims - 1))
     hiddens = [h * expand_dims(masks, h) for h in hiddens]
   return [x_noised] + [tf.stop_gradient(h) for h in hiddens]

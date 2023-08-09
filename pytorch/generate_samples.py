@@ -57,7 +57,7 @@ config = dict(
         clip_grad_norm=1.0,
         sample_every=1,
         num_dl_workers=2,
-        checkpoint_folder="results/cifar10_original_v14",
+        checkpoint_folder="results/debug",
         run_name="debug",
         log_to_wandb=False,
     ),
@@ -93,12 +93,13 @@ trainer = Trainer(
 )
 
 
-trainer.load("latest")
+trainer.load("results/cifar10_original_v14/model-latest.pt", absolute=True)
 
 trainer.ema_diffusion_model.eval()
-samples = trainer.ema_diffusion_model.sample(num_samples=64, iterations=100, method="ddim", seed=15)
+n = 16
+samples = trainer.ema_diffusion_model.sample(num_samples=n * n, iterations=100, method="ddpm", seed=0, class_override=1)
 
-samples = make_grid(samples, nrow=8, normalize=True, range=(0, 1), padding=0)
-save_image(samples, "____SAAAAAAAAMPLEEEEE.png")
+samples = make_grid(samples, nrow=n, normalize=True, range=(0, 1), padding=0)
+save_image(samples, "samples.png")
 
 # trainer.train()

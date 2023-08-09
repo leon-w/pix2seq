@@ -38,6 +38,10 @@ if __name__ == "__main__":
             # adjust channel order for images
             tf = tf.transpose((0, 3, 1, 2))
 
+        if len(tf.shape) == 3 and tf.shape[2] == 3:
+            # adjust channel order for images
+            tf = tf.transpose((2, 0, 1))
+
         if tf.shape == pt.shape:
             diff = np.mean(np.abs(tf - pt))
             diff_std = np.std(np.abs(tf - pt))

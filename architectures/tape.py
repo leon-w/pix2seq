@@ -15,6 +15,7 @@
 # ==============================================================================
 """Recurrent Interface Network (RIN), but here it is named Tape."""
 
+import numpy as np
 import tensorflow as tf
 from einops import rearrange
 
@@ -407,3 +408,17 @@ class ImageTapeDenoiser(TapeDenoiser):  # pylint: disable=missing-docstring
             p2=self._patch_size,
         )
         return tokens
+
+    def load_weights_numpy(self, np_file):
+        weights_np = list(np.load(np_file, allow_pickle=True).item().values())
+
+        for weight, param in zip(weights_np, self.weights):
+            param.assign(weight)
+
+    def pass_dummy_data(self, num_classes=10):
+        self(
+            x=tf.convert_to_tensor(np.zeros((1, 32, 32, 3), dtype=np.float32)),
+            t=tf.convert_to_tensor(np.zeros((1, 1), dtype=np.float32)),
+            cond=tf.convert_to_tensor(np.zeros((1, num_classes), dtype=np.float32)),
+            training=True,
+        )

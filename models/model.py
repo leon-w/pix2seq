@@ -23,6 +23,8 @@ import utils
 from models import model_utils
 import tensorflow as tf
 
+from debug_utils import p, track
+
 ModelRegistry = registry.Registry()
 TrainerRegistry = registry.Registry()
 
@@ -81,7 +83,7 @@ class Trainer(abc.ABC):
     self._metrics.update({
         f'loss_{t.name}': tf.keras.metrics.Mean(f'loss_{t.name}')
         for t in config.tasks})
-    self._print_params = True
+    self._print_params = False # TODO: remove this.
 
   def train_step(self, examples, tasks, strategy):
     """Defines a single training step for model update given examples and tasks.
@@ -111,6 +113,10 @@ class Trainer(abc.ABC):
             trainable_variables)
         grads = grads_t if i == 0 else [
             g + gt for g, gt in zip(grads, grads_t)]
+
+    # for g in grads:
+    #   track("g", _=g)
+
     self._optimizer.apply_gradients(zip(grads, trainable_variables))
 
     # Update metrics.

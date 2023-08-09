@@ -50,7 +50,7 @@ import tensorflow as tf
 import wandb
 from einops import rearrange
 from PIL import Image
-from debug_utils import p
+from debug_utils import p, track, save_image_grid
 
 
 TRAIN = 'train'
@@ -277,7 +277,7 @@ def perform_training(config, datasets, tasks, train_steps, steps_per_loop,
 
       # generate samples and upload to wandb
       n = 8
-      samples, _ = trainer.model.sample(num_samples=n*n)
+      samples, _ = trainer.model.sample(num_samples=n*n, iterations=100, method="ddim")
       sample_grid = rearrange(samples.numpy(), "(b1 b2) h w c -> (b1 h) (b2 w) c", b1=n)
       wandb.log({"samples": wandb.Image(sample_grid)}, step=cur_step)
 

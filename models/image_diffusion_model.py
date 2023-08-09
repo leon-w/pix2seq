@@ -27,6 +27,8 @@ from models import model as model_lib
 import tensorflow as tf
 import numpy as np
 
+from debug_utils import p, track, save_image_grid
+
 
 @model_lib.ModelRegistry.register('image_diffusion_model')
 class Model(tf.keras.models.Model):
@@ -104,6 +106,9 @@ class Model(tf.keras.models.Model):
           name=config.arch_name)
       self.denoiser = ImageTapeDenoiser(**m_kwargs)
       self.denoiser_ema = ImageTapeDenoiser(**m_kwargs, trainable=False)
+
+      # self.denoiser.pass_dummy_data(10)
+      # self.denoiser_ema.pass_dummy_data(10)
     else:
       raise ValueError(f'Unknown architecture {config.arch_name}')
     # Obtain hidden shapes for latent self conditioning.
@@ -206,11 +211,11 @@ class Model(tf.keras.models.Model):
       loss = tf.constant(-1.0, dtype=tf.float32)
     return samples, loss
 
-  def noise_denoise(self, images, labels, time_step=None, training=True):
+  def noise_denoise(self, images, labels, time_step=None, training=True, seed=None):
     config = self.config
     images = (images * 2. - 1.) * config.b_scale  # convert 0,1 -> -s,s
-    images_noised, noise, _, gamma = self.scheduler.add_noise(
-        images, time_step=time_step)
+    images_noised, noise, t_, gamma = self.scheduler.add_noise(
+        images, time_step=time_step, seed=seed)
     if config.self_cond != 'none':
       sc_rate = config.get('self_cond_rate', 0.5)
       self_cond_by_masking = config.get('self_cond_by_masking', False)
@@ -230,7 +235,7 @@ class Model(tf.keras.models.Model):
       else:  # latent self-cond, return is a tuple.
         denoise_inputs = diffusion_utils.add_self_cond_hidden(
             images_noised, gamma, cond_denoise, num_sc_examples,
-            self.hidden_shapes, drop_rate=sc_drop_rate, training=training)
+            self.hidden_shapes, drop_rate=sc_drop_rate, training=training, seed=seed)
     else:
       denoise_inputs = images_noised
     cond_denoise = self.get_cond_denoise(labels)
@@ -261,11 +266,12 @@ class Model(tf.keras.models.Model):
            images: tf.Tensor,
            labels: tf.Tensor,
            training: bool = True,
+           seed=None,
            **kwargs)  -> tf.Tensor:  # pylint: disable=signature-mismatch
     """Model inference call."""
     with tf.name_scope(''):  # for other functions to have the same name scope
       images, noise, _, pred_dict = self.noise_denoise(
-          images, labels, None, training)
+          images, labels, None, training, seed=seed)
       return self.compute_loss(images, noise, pred_dict)
 
 
@@ -276,10 +282,28 @@ class Trainer(model_lib.Trainer):
   def compute_loss(self, preprocess_outputs):
     """Compute loss based on model outputs and targets."""
     images, labels = preprocess_outputs
-    loss = self.model(images, labels, training=True)
+    loss = self.model(images, labels, training=True, seed=15)
     return loss
 
   def train_step(self, examples, tasks, strategy):
+    # override examples to be consistent with pytorch
+    # data_tf = np.load('input_tf.npy', allow_pickle=True).item()
+    # images = tf.convert_to_tensor(data_tf['image'])
+    # labels = tf.convert_to_tensor(data_tf['label'])
+    # examples = [{'image': images, 'label': labels}]
+
+    # images = examples[0]['image']
+    # labels = examples[0]['label']
+    # np.save('input_tf.npy', {
+    #   'image': images.numpy(),
+    #   'label': labels.numpy(),
+    # })
+
+    # p('train_step called', images=images, labels=labels)
+    # save_image_grid(images, 'input_tf.png')
+
+    # track("A", images=images, labels=labels)
+
     super().train_step(examples, tasks, strategy)
 
     # EMA udpate
@@ -308,6 +332,9 @@ class Trainer(model_lib.Trainer):
       vars_src = [src_vars_dict[var.name] for var in vars_dst]
     for var_src, var_dst in zip(vars_src, vars_dst):
       var_dst.assign(var_dst * ema_decay + var_src * (1. - ema_decay))
+    
+    # for w in self.model.denoiser_ema.weights:
+    #   track("ema", _=w)
 
 
 @model_lib.ModelRegistry.register('image_token_diffusion_model')
